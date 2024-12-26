@@ -229,7 +229,7 @@
             text-decoration: none;
             cursor: pointer;
         }
-        #addEmployeeModal h2 {
+        .modal h2 {
             margin: 0;
             font-size: 30px;
             font-weight: bold;
@@ -245,7 +245,7 @@
         .form-group {
             text-align: center; /* Center align the form group */
         }
-        #submit {
+        .submit {
             width: auto; 
             padding: 10px 20px; 
             font-size: 16px; 
@@ -349,7 +349,7 @@
                         </thead>
                         <tbody>
                             <tr>
-                                <td>1</td>
+                                <td><a href="#" class="edit-employee-link" data-id="1">1</a></td>
                                 <td>1</td>
                                 <td>01/06/2021</td>
                                 <td>01/10/2021</td>
@@ -404,7 +404,7 @@
         </div>
     </div>
 
-    <!-- The Modal -->
+    <!-- Add Employee Modal -->
     <div id="addEmployeeModal" class="modal">
         <div class="modal-content">
             <span class="close">&times;</span>
@@ -428,15 +428,15 @@
                 <label for="status">Status:</label>
                 <input type="text" id="status" name="status"><br><br>
                 <div class="form-group">
-                    <button id="submit" class="form-group" type="submit">Add Employee</button>
+                    <button id="add-employee" class="submit" type="submit">Add Employee</button>
                 </div>
             </form>
         </div>
     </div>
 
     <script>
-         // Get the modal
-         var modal = document.getElementById("addEmployeeModal");
+        // Get the modal
+        var add_modal = document.getElementById("addEmployeeModal");
 
         // Get the button that opens the modal
         var btn = document.getElementById("add_employee");
@@ -456,8 +456,8 @@
 
         // When the user clicks anywhere outside of the modal, close it
         window.onclick = function(event) {
-            if (event.target == modal) {
-                modal.style.display = "none";
+            if (event.target == addModal) {
+                addModal.style.display = "none";
             }
         }
 
