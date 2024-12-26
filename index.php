@@ -110,7 +110,7 @@
             margin: 10px;
             height: 86%;
         }
-        .fa-solid {
+        .fa-plus {
             color: #F6F4F0;
             cursor: pointer;
             margin: 5px 10px 5px;
@@ -194,6 +194,68 @@
             margin-top: 10;
             height: 86%;
         }
+
+         /* Modal styles */
+        .modal {
+            display: none; 
+            position: fixed; 
+            z-index: 1; 
+            left: 0;
+            top: 0;
+            width: 100%; 
+            height: 100%; 
+            overflow: auto; 
+            background-color: rgb(0,0,0); 
+            background-color: rgba(0,0,0,0.4); 
+            padding-top: 60px;
+        }
+        .modal-content {
+            background-color: #F6F4F0;
+            margin: 5% auto; 
+            padding: 20px;
+            border: 1px solid #888;
+            width: 550px; 
+            border-radius: 20px;
+        }
+        .close {
+            color: #aaa;
+            float: right;
+            font-size: 28px;
+            font-weight: bold;
+        }
+        .close:hover,
+        .close:focus {
+            color: black;
+            text-decoration: none;
+            cursor: pointer;
+        }
+        #addEmployeeModal h2 {
+            margin: 0;
+            font-size: 30px;
+            font-weight: bold;
+            color: #4DA1A9;
+        }
+        input[type="text"] {
+            width: 60%; 
+            padding: 5px 10px; 
+            margin: 8px 0; 
+            box-sizing: border-box; 
+            font-size: 16px; 
+        }
+        .form-group {
+            text-align: center; /* Center align the form group */
+        }
+        #submit {
+            width: auto; 
+            padding: 10px 20px; 
+            font-size: 16px; 
+            font-family: "Poppins", sans-serif;
+            background-color: #4DA1A9; 
+            color: #F6F4F0; 
+            border: none; 
+            border-radius: 10px; 
+            cursor: pointer; 
+        }
     </style>
 </head>
 <body>
@@ -218,7 +280,7 @@
                 </select>
             </div>
             <div id="right">
-                <i class="fa-solid fa-plus"></i>            
+                <i class="fa-solid fa-plus" id="add_employee"></i>            
             </div>
         </div>
         <div class="container" id="employee-table">
@@ -301,6 +363,8 @@
         </div>
     </div>
 
+    
+
     <!-- Payroll Container -->
     <div class="main hidden" id="payroll_container">
         <div class="header-container">
@@ -340,7 +404,64 @@
         </div>
     </div>
 
+    <!-- The Modal -->
+    <div id="addEmployeeModal" class="modal">
+        <div class="modal-content">
+            <span class="close">&times;</span>
+            <h2>Add Employee</h2>
+            <hr>
+            <form id="addEmployeeForm">
+                <label for="lastName">Last Name:</label>
+                <input type="text" id="lastName" name="lastName"><br>
+                <label for="firstName">First Name:</label>
+                <input type="text" id="firstName" name="firstName"><br>
+                <label for="contactInfo">Contact Information:</label>
+                <input type="text" id="contactInfo" name="contactInfo"><br>
+                <label for="department">Department:</label>
+                <select id="department">
+                    <option value="it">IT Department</option>
+                    <option value="hr">HR Department</option>
+                    <option value="finance">Finance Department</option>
+                </select><br>
+                <label for="position">Position:</label>
+                <input type="text" id="position" name="position"><br>
+                <label for="status">Status:</label>
+                <input type="text" id="status" name="status"><br><br>
+                <div class="form-group">
+                    <button id="submit" class="form-group" type="submit">Add Employee</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
     <script>
+         // Get the modal
+         var modal = document.getElementById("addEmployeeModal");
+
+        // Get the button that opens the modal
+        var btn = document.getElementById("add_employee");
+
+        // Get the <span> element that closes the modal
+        var span = document.getElementsByClassName("close")[0];
+
+        // When the user clicks the button, open the modal 
+        btn.onclick = function() {
+            modal.style.display = "block";
+        }
+
+        // When the user clicks on <span> (x), close the modal
+        span.onclick = function() {
+            modal.style.display = "none";
+        }
+
+        // When the user clicks anywhere outside of the modal, close it
+        window.onclick = function(event) {
+            if (event.target == modal) {
+                modal.style.display = "none";
+            }
+        }
+
+        // Add active class to the first navigation
         document.getElementById('leave_nav').addEventListener('click', function() {
             document.getElementById('employee_container').classList.add('hidden');
             document.getElementById('payroll_container').classList.add('hidden');
@@ -350,6 +471,7 @@
             document.getElementById('payroll_nav').classList.remove('active');
         });
 
+        // Add active class to the second navigation
         document.getElementById('employee_nav').addEventListener('click', function() {
             document.getElementById('leave_container').classList.add('hidden');
             document.getElementById('payroll_container').classList.add('hidden');
@@ -359,6 +481,7 @@
             document.getElementById('payroll_nav').classList.remove('active');
         });
 
+        // Add active class to the third navigation
         document.getElementById('payroll_nav').addEventListener('click', function() {
             document.getElementById('employee_container').classList.add('hidden');
             document.getElementById('leave_container').classList.add('hidden');
