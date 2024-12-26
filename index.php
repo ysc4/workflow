@@ -62,7 +62,7 @@
         }
         select {
             padding: 10px 20px; 
-            margin: 10px;
+            margin: 10px 10px 10px 20px;
             background-color: #F6F4F0; 
             color: #2E5077; 
             border: none;
@@ -110,14 +110,11 @@
             margin: 10px;
             height: 86%;
         }
-        #add_employee {
-            padding: 5px 20px;
-            background-color: #F6F4F0;
-            color: #2E5077;
-            border-radius: 10px;
+        .fa-solid {
+            color: #F6F4F0;
             cursor: pointer;
-            font-family: "Poppins", sans-serif;
-            font-size: 14px;
+            margin: 5px 10px 5px;
+            font-size: 1.5em;
         }
         .header-container h1 {
             margin: 0;
@@ -186,6 +183,17 @@
             overflow: auto;
             margin-top: 0;
         }
+        #generate-payroll {
+            color: #F6F4F0;
+            cursor: pointer;
+            margin: 5px 10px 5px;
+            font-size: 1.5em;
+        }
+        #payroll-table {
+            overflow: auto;
+            margin-top: 10;
+            height: 86%;
+        }
     </style>
 </head>
 <body>
@@ -210,7 +218,7 @@
                 </select>
             </div>
             <div id="right">
-                <button id="add_employee">Add Employee</button>
+                <i class="fa-solid fa-plus"></i>            
             </div>
         </div>
         <div class="container" id="employee-table">
@@ -305,18 +313,18 @@
                 </select>
             </div>
             <div id="right">
-                <button id="add_employee">Add Employee</button>
+                <i class="fa-solid fa-download" id="generate-payroll"></i>             
             </div>
         </div>
-        <div class="container">
+        <div class="container" id="payroll-table">
             <table>
                 <thead>
                     <tr>
                         <th>EMPLOYEE ID</th>
                         <th>LAST NAME</th>
                         <th>FIRST NAME</th>
-                        <th>POSITION</th>
-                        <th>CONTACT INFORMATION</th>
+                        <th>DATE RECEIVED</th>
+                        <th>STATUS</th>
                     </tr>
                 </thead>
                 <tbody>
@@ -324,8 +332,8 @@
                         <td>3</td>
                         <td>Johnson</td>
                         <td>Emily</td>
-                        <td>Accountant</td>
-                        <td>+01234567890</td>
+                        <td>12/09/2020</td>
+                        <td>Received</td>
                     </tr>
                 </tbody>
             </table>
