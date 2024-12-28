@@ -256,6 +256,17 @@
             border-radius: 10px; 
             cursor: pointer; 
         }
+        #view_employee_header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        .fa-pen-to-square {
+            color: #4DA1A9;
+            cursor: pointer;
+            margin: 5px 10px 5px;
+            font-size: 1.5em;
+        }
     </style>
 </head>
 <body>
@@ -297,7 +308,7 @@
                 </thead>
                 <tbody>
                     <tr>
-                        <td>1</td>
+                        <td><a href="#viewEmployeeModal" id="view-employee-link" data-id="1">1</a></td>
                         <td>Doe</td>
                         <td>John</td>
                         <td>Web Developer</td>
@@ -349,7 +360,7 @@
                         </thead>
                         <tbody>
                             <tr>
-                                <td><a href="#" class="edit-employee-link" data-id="1">1</a></td>
+                                <td>1</td>
                                 <td>1</td>
                                 <td>01/06/2021</td>
                                 <td>01/10/2021</td>
@@ -362,8 +373,6 @@
             </div>
         </div>
     </div>
-
-    
 
     <!-- Payroll Container -->
     <div class="main hidden" id="payroll_container">
@@ -434,31 +443,128 @@
         </div>
     </div>
 
+     <!-- Edit Employee Modal -->
+     <div id="editEmployeeModal" class="modal">
+        <div class="modal-content">
+            <span class="close">&times;</span>
+            <h2>Edit Employee</h2>
+            <hr>
+            <form id="editEmployeeForm">
+                <label for="lastName">Last Name:</label>
+                <input type="text" id="lastName" name="lastName"><br>
+                <label for="firstName">First Name:</label>
+                <input type="text" id="firstName" name="firstName"><br>
+                <label for="contactInfo">Contact Information:</label>
+                <input type="text" id="contactInfo" name="contactInfo"><br>
+                <label for="department">Department:</label>
+                <select id="department">
+                    <option value="it">IT Department</option>
+                    <option value="hr">HR Department</option>
+                    <option value="finance">Finance Department</option>
+                </select><br>
+                <label for="position">Position:</label>
+                <input type="text" id="position" name="position"><br>
+                <label for="status">Status:</label>
+                <input type="text" id="status" name="status"><br><br>
+                <div class="form-group">
+                    <button id="edit-employee" class="submit" type="submit">Edit Employee</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!--View Employee Details-->
+    <div id="viewEmployeeModal" class="modal">
+        <div class="modal-content">
+            <span class="close">&times;</span>
+            <div id="view_employee_header">
+                <h2>View Employee</h2>
+                <i class="fa-solid fa-pen-to-square" id="edit_employee"></i>
+            </div>
+            <hr>
+            <p>Last Name</p>
+            <p>First Name</p>
+            <p>Contact Information</p>
+            <p>Department</p>
+            <p>Position</p>
+            <p>Status</p>
+            <h3>Leave History</h3>
+            <table>
+                <tr>
+                    <th>Leave Type</th>
+                    <th>Start Date</th>
+                    <th>End Date</th>
+                    <th>Days</th>
+                </tr>  
+            </table> 
+            <h3>Payslip Overview</h3>
+            <table>
+                <tr>
+                    <th>Pay Period</th>
+                    <th>Pay Date</th>
+                    <th>Net Pay</th>
+                </tr>
+            </table>
+        </div>
+    </div>
+
     <script>
         // Get the modal
         var add_modal = document.getElementById("addEmployeeModal");
+        var edit_modal = document.getElementById("editEmployeeModal");
+        var view_modal = document.getElementById("viewEmployeeModal");
 
-        // Get the button that opens the modal
-        var btn = document.getElementById("add_employee");
+        // Get the button that opens the add modal
+        var add_btn = document.getElementById("add_employee");
+        
 
-        // Get the <span> element that closes the modal
-        var span = document.getElementsByClassName("close")[0];
+        // Get the <span> element that closes the modals
+        var spans = document.getElementsByClassName("close");
 
-        // When the user clicks the button, open the modal 
-        btn.onclick = function() {
-            modal.style.display = "block";
+        // When the user clicks the button, open the add modal 
+        add_btn.onclick = function() {
+            add_modal.style.display = "block";
         }
 
-        // When the user clicks on <span> (x), close the modal
-        span.onclick = function() {
-            modal.style.display = "none";
-        }
-
-        // When the user clicks anywhere outside of the modal, close it
-        window.onclick = function(event) {
-            if (event.target == addModal) {
-                addModal.style.display = "none";
+        // When the user clicks on <span> (x), close the modals
+        for (var i = 0; i < spans.length; i++) {
+            spans[i].onclick = function() {
+                add_modal.style.display = "none";
+                edit_modal.style.display = "none";
+                view_modal.style.display = "none";
             }
+        }
+
+        // When the user clicks anywhere outside of the modals, close them
+        window.onclick = function(event) {
+            if (event.target == add_modal) {
+                add_modal.style.display = "none";
+            }
+            if (event.target == edit_modal) {
+                edit_modal.style.display = "none";
+            }
+            if (event.target == view_modal) {
+                view_modal.style.display = "none";
+            }
+        }
+
+        // Get all view links
+        var view_links = document.getElementById("view-employee-link");
+
+        // When the user clicks a view link, open the view modal
+        view_links.onclick = function(event) {
+            // event.preventDefault();
+            // var employeeId = this.getAttribute("data-id");
+
+            //     // Populate the view modal with employee data (this is just a placeholder, you need to fetch the actual data)
+            // document.getElementById("viewLastName").innerText = "Last Name: Doe"; // Replace with actual data
+            // document.getElementById("viewFirstName").innerText = "First Name: John"; // Replace with actual data
+            // document.getElementById("viewContactInfo").innerText = "Contact Information: +09123456789"; // Replace with actual data
+            // document.getElementById("viewDepartment").innerText = "Department: IT Department"; // Replace with actual data
+            // document.getElementById("viewPosition").innerText = "Position: Web Developer"; // Replace with actual data
+            // document.getElementById("viewStatus").innerText = "Status: Active"; // Replace with actual data
+            view_modal.style.display = "block";
+            
         }
 
         // Add active class to the first navigation
