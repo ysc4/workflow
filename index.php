@@ -278,6 +278,51 @@
             margin: 5px 10px 5px;
             font-size: 1.5em;
         }
+        .leave-request {
+            width: 90%;
+            margin: 10px auto; /* Center the div and add margin */
+            padding: 10px; /* Add padding for better spacing */
+            border-radius: 10px;
+            background-color: #F6F4F0; /* Background color */
+            color: #2E5077;
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1); /* Add a subtle shadow */
+            border: 1px solid #2E5077; /* Border color */
+            cursor: pointer; /* Change cursor to pointer */
+            transition: transform 0.2s; /* Add transition for hover effect */
+            line-height: 0.6; /* Lessen line spacing */
+        }
+        .leave-request:hover {
+            transform: scale(1.02); /* Slightly enlarge on hover */
+            box-shadow: 0 8px 16px rgba(0, 0, 0, 0.2); /* Enhance shadow on hover */
+        }
+        #reqButtons {
+            display: flex;
+            justify-content: center;
+            margin-top: 20px;
+            gap: 10px;
+        }
+        #departmentFilter {
+            padding: 10px 10px; 
+            margin-left: 5px;
+            background-color: #F6F4F0; 
+            color: #2E5077; 
+            border: 1px solid #2E5077;
+            border-radius: 5px; 
+            font-family: "Poppins", sans-serif;
+            font-style: normal;
+            font-size: 14px;
+        }
+        input[type="date"] {
+            padding: 10px 10px; 
+            margin: 10px;
+            background-color: #F6F4F0; 
+            color: #2E5077; 
+            border: 1px solid #2E5077; /* Added border */
+            border-radius: 5px; 
+            font-family: "Poppins", sans-serif;
+            font-style: normal;
+            font-size: 14px;
+        }
     </style>
 </head>
 <body>
@@ -339,23 +384,32 @@
                     <h2>Incoming Leave Requests</h2>
                     <i class="fa-solid fa-sort"></i>
                 </div>
-                <table id="incoming-leaves-table">
-                    <tbody>
-                        <tr>
-                            <td class="leave">
-                                <p><b>Employee ID: 1</b></p>
-                                <p>Start Date: 01/06/2021</p>
-                                <p>End Date: 01/10/2021</p>
-                                <p>Kind of Leave: Vacation</p>
-                            </td>
-                        </tr>
-                    </tbody>
-                </table>
+                <div id="incoming-leaves-list">
+                    <!-- Leave requests will be dynamically added here -->
+                </div>
             </div>
             <div class="container" id="leave-overview">
-                <div id="leave-overview-header">
-                    <h2>Leave Overview</h2>
-                    <i class="fa-solid fa-download"></i>                
+                <div id="leave-title">
+                    <div id="leave-overview-header">
+                        <h2>Leave Overview</h2>
+                        <i class="fa-solid fa-download"></i>                
+                    </div>
+                    <div id="filter-options">
+                        <form id="filterForm">
+                            <label for="startDate">From:</label>
+                            <input type="date" id="startDate" name="startDate">
+                            <label for="endDate">&emsp; To:</label>
+                            <input type="date" id="endDate" name="endDate">
+                            <label for="departmentFilter">&emsp; Department:</label>
+                            <select id="departmentFilter" name="department">
+                                <option value="">All Departments</option>
+                                <option value="it">IT Department</option>
+                                <option value="hr">HR Department</option>
+                                <option value="finance">Finance Department</option>
+                            </select>
+                            <i class="fa-solid fa-sync" id="filterRefreshIcon" style="cursor: pointer; margin-left: 10px;"></i>
+                        </form>
+                    </div>
                 </div>
                 <div id="leave-table">
                     <table>
@@ -556,11 +610,47 @@
         </div>
     </div>
 
+    <!-- Leave Request Modal -->
+    <div id="leaveRequestModal" class="modal">
+        <div class="modal-content">
+            <span class="close">&times;</span>
+            <h2>Leave Request</h2>
+            <hr>
+            <p id="viewName"><b>Employee Name</b></p>
+            <p id="viewStartDate"><b>Start Date</b></p>
+            <p id="viewEndDate"><b>End Date</b></p>
+            <p id="viewLeaveType"><b>Kind of Leave</b></p>
+            <div id="reqButtons">
+                <button id="approve-leave" class="submit">Approve</button>
+                <button id="reject-leave" class="submit">Reject</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Leave Request Modal -->
+    <div id="leaveOverviewModal" class="modal">
+        <div class="modal-content">
+            <span class="close">&times;</span>
+            <h2>Leave Request Overview</h2>
+            <hr>
+            <p id="viewName"><b>Employee Name</b></p>
+            <p id="viewStartDate"><b>Start Date</b></p>
+            <p id="viewEndDate"><b>End Date</b></p>
+            <p id="viewLeaveType"><b>Kind of Leave</b></p>
+            <div id="reqButtons">
+                <button id="approve-leave" class="submit">Approve</button>
+                <button id="reject-leave" class="submit">Reject</button>
+            </div>
+        </div>
+    </div>
+
+
     <script>
         // Get the modal
         var add_modal = document.getElementById("addEmployeeModal");
         var edit_modal = document.getElementById("editEmployeeModal");
         var view_modal = document.getElementById("viewEmployeeModal");
+        var leave_request_modal = document.getElementById("leaveRequestModal");
 
         var add_btn = document.getElementById("add_employee");
         var edit_btn = document.getElementById("edit_employee")
@@ -572,6 +662,7 @@
                 add_modal.style.display = "none";
                 edit_modal.style.display = "none";
                 view_modal.style.display = "none";
+                leave_request_modal.style.display = "none";
             }
         }
 
@@ -585,6 +676,9 @@
             if (event.target == view_modal) {
                 view_modal.style.display = "none";
             }
+            if (event.target == leave_request_modal) {
+                leave_request_modal.style.display = "none";
+            } 
         }
 
         add_btn.onclick = function() {
@@ -614,8 +708,44 @@
             document.getElementById("viewDepartment").innerText = "Department: IT Department"; // Replace with actual data
             document.getElementById("viewPosition").innerText = "Position: Web Developer"; // Replace with actual data
             document.getElementById("viewStatus").innerText = "Status: Active"; // Replace with actual data
-            view_modal.style.display = "block";
-            
+            view_modal.style.display = "block";     
+        }
+
+        // Function to add a leave request to the incoming leaves list
+        function addLeaveRequest(employeeName, startDate, endDate, leaveType) {
+            var leaveRequestDiv = document.createElement("div");
+            leaveRequestDiv.className = "leave-request";
+            leaveRequestDiv.innerHTML = `
+                <p><b>Employee Name:</b> ${employeeName}</p>
+                <p><b>Start Date:</b> ${startDate}</p>
+                <p><b>End Date:</b> ${endDate}</p>
+                <p><b>Kind of Leave:</b> ${leaveType}</p>
+            `;
+            leaveRequestDiv.onclick = function() {
+                document.getElementById("viewName").innerText = "Employee Name: " + employeeName;
+                document.getElementById("viewStartDate").innerText = "Start Date: " + startDate;
+                document.getElementById("viewEndDate").innerText = "End Date: " + endDate;
+                document.getElementById("viewLeaveType").innerText = "Kind of Leave: " + leaveType;
+                leave_request_modal.style.display = "block";
+            };
+            document.getElementById("incoming-leaves-list").appendChild(leaveRequestDiv);
+        }
+
+        // Example usage
+        addLeaveRequest("1", "01/06/2021", "01/10/2021", "Vacation Leave");
+        addLeaveRequest("2", "02/06/2021", "02/10/2021", "Sick Leave");
+
+        var approve_leave = document.getElementById("approve-leave");
+        var reject_leave = document.getElementById("reject-leave");
+
+        approve_leave.onclick = function() {
+            alert("Leave request approved!");
+            leave_request_modal.style.display = "none";
+        }
+
+        reject_leave.onclick = function() {
+            alert("Leave request rejected!");
+            leave_request_modal.style.display = "none";
         }
 
         // Add active class to the first navigation
