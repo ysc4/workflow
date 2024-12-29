@@ -420,6 +420,7 @@
                             <tr>
                                 <th>LEAVE ID</th>
                                 <th>EMPLOYEE ID</th>
+                                <th>EMPLOYEE NAME</th>
                                 <th>START DATE</th>
                                 <th>END DATE</th>
                                 <th>KIND OF LEAVE</th>
@@ -430,6 +431,7 @@
                             <tr>
                                 <td>1</td>
                                 <td>1</td>
+                                <td>John Doe</td>
                                 <td>01/06/2021</td>
                                 <td>01/10/2021</td>
                                 <td>Vacation</td>
@@ -644,6 +646,7 @@
                     <tr>
                         <th>LEAVE ID</th>
                         <th>EMPLOYEE ID</th>
+                        <th>EMPLOYEE NAME</th>
                         <th>START DATE</th>
                         <th>END DATE</th>
                         <th>KIND OF LEAVE</th>
@@ -734,13 +737,13 @@
             });
 
             var incomingLeavesList = document.getElementById('incoming-leaves-list');
-            incomingLeavesList.innerHTML = ''; // Clear existing leave requests
+            incomingLeavesList.innerHTML = '';
 
             leaveRequestsArray.forEach(function(request) {
                 incomingLeavesList.appendChild(request);
             });
 
-            sortAscending = !sortAscending; // Toggle sorting order
+            sortAscending = !sortAscending; 
         });
 
         // Function to add a leave request to the incoming leaves list
