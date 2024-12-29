@@ -221,6 +221,9 @@
         #view-employee-details {
             height: 75%
         }
+        #leave-overview-report {
+            width: 1000px;
+        }
         .close {
             color: #aaa;
             float: right;
@@ -382,7 +385,7 @@
             <div class="container" id="incoming-leaves">
                 <div id="incoming-leaves-header">
                     <h2>Incoming Leave Requests</h2>
-                    <i class="fa-solid fa-sort"></i>
+                    <i class="fa-solid fa-sort" id="sortIcon"></i>
                 </div>
                 <div id="incoming-leaves-list">
                     <!-- Leave requests will be dynamically added here -->
@@ -392,7 +395,7 @@
                 <div id="leave-title">
                     <div id="leave-overview-header">
                         <h2>Leave Overview</h2>
-                        <i class="fa-solid fa-download"></i>                
+                        <i class="fa-solid fa-download" id="generateOverview"></i>                
                     </div>
                     <div id="filter-options">
                         <form id="filterForm">
@@ -423,7 +426,7 @@
                                 <th>STATUS</th>
                             </tr>
                         </thead>
-                        <tbody>
+                        <tbody id="leaveOverviewTableBody">
                             <tr>
                                 <td>1</td>
                                 <td>1</td>
@@ -465,7 +468,7 @@
                         <th>STATUS</th>
                     </tr>
                 </thead>
-                <tbody>
+                <tbody id="leaveOverviewTable">
                     <tr>
                         <td>3</td>
                         <td>Johnson</td>
@@ -627,20 +630,29 @@
         </div>
     </div>
 
-    <!-- Leave Request Modal -->
+    <!-- Leave Overview Modal -->
     <div id="leaveOverviewModal" class="modal">
-        <div class="modal-content">
+        <div class="modal-content" id="leave-overview-report">
             <span class="close">&times;</span>
             <h2>Leave Request Overview</h2>
             <hr>
-            <p id="viewName"><b>Employee Name</b></p>
-            <p id="viewStartDate"><b>Start Date</b></p>
-            <p id="viewEndDate"><b>End Date</b></p>
-            <p id="viewLeaveType"><b>Kind of Leave</b></p>
-            <div id="reqButtons">
-                <button id="approve-leave" class="submit">Approve</button>
-                <button id="reject-leave" class="submit">Reject</button>
-            </div>
+            <p id="modalDepartment">Department:</p>
+            <p id="modalStartDate">From:</p>
+            <p id="modalEndDate">To:</p>
+            <table>
+                <thead>
+                    <tr>
+                        <th>LEAVE ID</th>
+                        <th>EMPLOYEE ID</th>
+                        <th>START DATE</th>
+                        <th>END DATE</th>
+                        <th>KIND OF LEAVE</th>
+                        <th>STATUS</th>
+                    </tr>
+                </thead>
+                <tbody id="leaveOverviewModalTableBody">
+                </tbody>
+            </table>
         </div>
     </div>
 
@@ -656,29 +668,22 @@
         var edit_btn = document.getElementById("edit_employee")
 
         var spans = document.getElementsByClassName("close");
-
         for (var i = 0; i < spans.length; i++) {
             spans[i].onclick = function() {
-                add_modal.style.display = "none";
-                edit_modal.style.display = "none";
-                view_modal.style.display = "none";
-                leave_request_modal.style.display = "none";
+                var modals = document.getElementsByClassName("modal");
+                for (var j = 0; j < modals.length; j++) {
+                    modals[j].style.display = "none";
+                }
             }
         }
 
         window.onclick = function(event) {
-            if (event.target == add_modal) {
-                add_modal.style.display = "none";
+            var modals = document.getElementsByClassName("modal");
+            for (var i = 0; i < modals.length; i++) {
+                if (event.target == modals[i]) {
+                    modals[i].style.display = "none";
+                }
             }
-            if (event.target == edit_modal) {
-                edit_modal.style.display = "none";
-            }
-            if (event.target == view_modal) {
-                view_modal.style.display = "none";
-            }
-            if (event.target == leave_request_modal) {
-                leave_request_modal.style.display = "none";
-            } 
         }
 
         add_btn.onclick = function() {
@@ -711,13 +716,40 @@
             view_modal.style.display = "block";     
         }
 
+        // Sorting the incoming leave requests
+        var sortAscending = true;
+        document.getElementById('sortIcon').addEventListener('click', function() {
+            var leaveRequests = document.querySelectorAll('#incoming-leaves-list .leave-request');
+            var leaveRequestsArray = Array.from(leaveRequests);
+
+            leaveRequestsArray.sort(function(a, b) {
+                var dateA = new Date(a.querySelector('.start-date').innerText.split(": ")[1]);
+                var dateB = new Date(b.querySelector('.start-date').innerText.split(": ")[1]);
+
+                if (sortAscending) {
+                    return dateA - dateB;
+                } else {
+                    return dateB - dateA;
+                }
+            });
+
+            var incomingLeavesList = document.getElementById('incoming-leaves-list');
+            incomingLeavesList.innerHTML = ''; // Clear existing leave requests
+
+            leaveRequestsArray.forEach(function(request) {
+                incomingLeavesList.appendChild(request);
+            });
+
+            sortAscending = !sortAscending; // Toggle sorting order
+        });
+
         // Function to add a leave request to the incoming leaves list
         function addLeaveRequest(employeeName, startDate, endDate, leaveType) {
             var leaveRequestDiv = document.createElement("div");
             leaveRequestDiv.className = "leave-request";
             leaveRequestDiv.innerHTML = `
                 <p><b>Employee Name:</b> ${employeeName}</p>
-                <p><b>Start Date:</b> ${startDate}</p>
+                <p class="start-date"><b>Start Date:</b> ${startDate}</p>
                 <p><b>End Date:</b> ${endDate}</p>
                 <p><b>Kind of Leave:</b> ${leaveType}</p>
             `;
@@ -732,21 +764,83 @@
         }
 
         // Example usage
-        addLeaveRequest("1", "01/06/2021", "01/10/2021", "Vacation Leave");
-        addLeaveRequest("2", "02/06/2021", "02/10/2021", "Sick Leave");
+        addLeaveRequest("John Doe", "2021-03-06", "2021-03-10", "Vacation Leave");
+        addLeaveRequest("Jane Smith", "2021-02-06", "2021-02-10", "Sick Leave");
+        addLeaveRequest("Alice Johnson", "2024-12-30", "2025-01-03", "Vacation Leave");
 
         var approve_leave = document.getElementById("approve-leave");
         var reject_leave = document.getElementById("reject-leave");
 
+        // Add function to approve leave request
         approve_leave.onclick = function() {
             alert("Leave request approved!");
             leave_request_modal.style.display = "none";
         }
 
+        // Add function to reject leave request
         reject_leave.onclick = function() {
             alert("Leave request rejected!");
             leave_request_modal.style.display = "none";
         }
+
+        // Filters leave overview in main table and leave report
+        function filterLeaveOverview() {
+            var startDate = document.getElementById('startDate').value;
+            var endDate = document.getElementById('endDate').value;
+            var department = document.getElementById('departmentFilter').value;
+
+            var rows = document.querySelectorAll('#leaveOverviewTableBody tr');
+            var filteredRows = [];
+
+            rows.forEach(function(row) {
+                var rowStartDate = new Date(row.cells[2].innerText);
+                var rowEndDate = new Date(row.cells[3].innerText);
+                var rowDepartment = row.cells[4].innerText;
+
+                var showRow = true;
+
+                if (startDate && rowStartDate < new Date(startDate)) {
+                    showRow = false;
+                }
+                if (endDate && rowEndDate > new Date(endDate)) {
+                    showRow = false;
+                }
+                if (department && rowDepartment !== department) {
+                    showRow = false;
+                }
+
+                if (showRow) {
+                    row.style.display = '';
+                    filteredRows.push(row.cloneNode(true));
+                } else {
+                    row.style.display = 'none';
+                }
+            });
+
+            return filteredRows;
+        }
+
+        document.getElementById('filterRefreshIcon').addEventListener('click', function() {
+            filterLeaveOverview();
+        });
+
+        document.getElementById('generateOverview').addEventListener('click', function() {
+            var filteredRows = filterLeaveOverview();
+
+            var modalTableBody = document.getElementById('leaveOverviewModalTableBody');
+            modalTableBody.innerHTML = ''; // Clear existing rows
+            filteredRows.forEach(function(row) {
+                modalTableBody.appendChild(row);
+            });
+
+            // Set the filtered values in the modal
+            document.getElementById('modalDepartment').innerText = "Department: " + document.getElementById('departmentFilter').value || 'All Departments';
+            document.getElementById('modalStartDate').innerText = "From: " + document.getElementById('startDate').value || 'N/A';
+            document.getElementById('modalEndDate').innerText = "To: " + document.getElementById('endDate').value || 'N/A';
+
+            var leaveOverviewModal = document.getElementById('leaveOverviewModal');
+            leaveOverviewModal.style.display = 'block';
+        });
 
         // Add active class to the first navigation
         document.getElementById('leave_nav').addEventListener('click', function() {
