@@ -544,38 +544,7 @@
                         <td>01/01/2021 - 01/15/2021</td>
                         <td>01/15/2021</td>
                         <td>$5000</td>
-                    </tr>    
-                    <tr>
-                        <td>01/01/2021 - 01/15/2021</td>
-                        <td>01/15/2021</td>
-                        <td>$5000</td>
-                    </tr>  
-                    <tr>
-                        <td>01/01/2021 - 01/15/2021</td>
-                        <td>01/15/2021</td>
-                        <td>$5000</td>
-                    </tr>  
-                    <tr>
-                        <td>01/01/2021 - 01/15/2021</td>
-                        <td>01/15/2021</td>
-                        <td>$5000</td>
-                    </tr>  
-                    <tr>
-                        <td>01/01/2021 - 01/15/2021</td>
-                        <td>01/15/2021</td>
-                        <td>$5000</td>
-                    </tr>  
-                    <tr>
-                        <td>01/01/2021 - 01/15/2021</td>
-                        <td>01/15/2021</td>
-                        <td>$5000</td>
-                    </tr>  
-                    <tr>
-                        <td>01/01/2021 - 01/15/2021</td>
-                        <td>01/15/2021</td>
-                        <td>$5000</td>
-                    </tr>  
-                               
+                    </tr>           
                 </tbody>
             </table>
         </div>
@@ -591,22 +560,6 @@
         var edit_btn = document.getElementById("edit_employee")
 
         var spans = document.getElementsByClassName("close");
-
-        add_btn.onclick = function() {
-            add_modal.style.display = "block";
-        }
-
-        edit_btn.onclick = function() {
-            // Populate the edit modal with employee data (this is just a placeholder, you need to fetch the actual data)
-            document.getElementById("editLastName").value = "Doe"; // Replace with actual data
-            document.getElementById("editFirstName").value = "John"; // Replace with actual data
-            document.getElementById("editContactInfo").value = "+09123456789"; // Replace with actual data
-            document.getElementById("editDepartment").value = "it"; // Replace with actual data
-            document.getElementById("editPosition").value = "Web Developer"; // Replace with actual data
-            document.getElementById("editStatus").value = "Active"; // Replace with actual data
-            edit_modal.style.display = "block";
-            view_modal.style.display = "none";
-        }
 
         for (var i = 0; i < spans.length; i++) {
             spans[i].onclick = function() {
@@ -628,18 +581,33 @@
             }
         }
 
+        add_btn.onclick = function() {
+            add_modal.style.display = "block";
+        }
+
+        edit_btn.onclick = function() {
+            document.getElementById("editLastName").value = "Doe"; // Replace with actual data
+            document.getElementById("editFirstName").value = "John"; // Replace with actual data
+            document.getElementById("editContactInfo").value = "+09123456789"; // Replace with actual data
+            document.getElementById("editDepartment").value = "it"; // Replace with actual data
+            document.getElementById("editPosition").value = "Web Developer"; // Replace with actual data
+            document.getElementById("editStatus").value = "Active"; // Replace with actual data
+            edit_modal.style.display = "block";
+            view_modal.style.display = "none";
+        }
+
         var view_links = document.getElementById("view-employee-link");
 
         view_links.onclick = function(event) {
             event.preventDefault();
             var employeeId = this.getAttribute("data-id");
 
-            document.getElementById("viewLastName").innerText = "Last Name: Doe"; 
-            document.getElementById("viewFirstName").innerText = "First Name: John"; 
-            document.getElementById("viewContactInfo").innerText = "Contact Information: +09123456789"; 
-            document.getElementById("viewDepartment").innerText = "Department: IT Department"; 
-            document.getElementById("viewPosition").innerText = "Position: Web Developer"; 
-            document.getElementById("viewStatus").innerText = "Status: Active"; 
+            document.getElementById("viewLastName").innerText = "Last Name: Doe"; // Replace with actual data
+            document.getElementById("viewFirstName").innerText = "First Name: John"; // Replace with actual data
+            document.getElementById("viewContactInfo").innerText = "Contact Information: +09123456789"; // Replace with actual data
+            document.getElementById("viewDepartment").innerText = "Department: IT Department"; // Replace with actual data
+            document.getElementById("viewPosition").innerText = "Position: Web Developer"; // Replace with actual data
+            document.getElementById("viewStatus").innerText = "Status: Active"; // Replace with actual data
             view_modal.style.display = "block";
             
         }
