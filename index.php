@@ -239,6 +239,12 @@
             font-weight: bold;
             color: #4DA1A9;
         }
+        .modal h3 {
+            margin: 0;
+            font-size: 24px;
+            font-weight: bold;
+            color: #4DA1A9;
+        }
         input[type="text"] {
             width: 60%; 
             padding: 5px 10px; 
