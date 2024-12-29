@@ -65,7 +65,7 @@
             margin: 10px 10px 10px 20px;
             background-color: #F6F4F0; 
             color: #2E5077; 
-            border: none;
+            border: 1px solid #2E5077;
             border-radius: 5px; 
             font-family: "Poppins", sans-serif;
             font-style: normal;
@@ -214,8 +214,12 @@
             margin: 5% auto; 
             padding: 20px;
             border: 1px solid #888;
-            width: 550px; 
+            width: 600px; 
+            overflow-y: auto;
             border-radius: 20px;
+        }
+        #view-employee-details {
+            height: 75%
         }
         .close {
             color: #aaa;
@@ -241,6 +245,7 @@
             margin: 8px 0; 
             box-sizing: border-box; 
             font-size: 16px; 
+            font-family: "Poppins", sans-serif;
         }
         .form-group {
             text-align: center; /* Center align the form group */
@@ -435,7 +440,10 @@
                 <label for="position">Position:</label>
                 <input type="text" id="position" name="position"><br>
                 <label for="status">Status:</label>
-                <input type="text" id="status" name="status"><br><br>
+                <select id="status" name="status">
+                    <option value="active">Active</option>
+                    <option value="onLeave">On Leave</option>
+                </select><br>
                 <div class="form-group">
                     <button id="add-employee" class="submit" type="submit">Add Employee</button>
                 </div>
@@ -450,60 +458,125 @@
             <h2>Edit Employee</h2>
             <hr>
             <form id="editEmployeeForm">
-                <label for="lastName">Last Name:</label>
-                <input type="text" id="lastName" name="lastName"><br>
-                <label for="firstName">First Name:</label>
-                <input type="text" id="firstName" name="firstName"><br>
-                <label for="contactInfo">Contact Information:</label>
-                <input type="text" id="contactInfo" name="contactInfo"><br>
-                <label for="department">Department:</label>
-                <select id="department">
+                <label for="editLastName">Last Name:</label>
+                <input type="text" id="editLastName" name="lastName" readonly><br>
+                <label for="editFirstName">First Name:</label>
+                <input type="text" id="editFirstName" name="firstName" readonly><br>
+                <label for="editContactInfo">Contact Information:</label>
+                <input type="text" id="editContactInfo" name="contactInfo" readonly><br>
+                <label for="editDepartment">Department:</label>
+                <select id="editDepartment" name="department">
                     <option value="it">IT Department</option>
                     <option value="hr">HR Department</option>
                     <option value="finance">Finance Department</option>
                 </select><br>
-                <label for="position">Position:</label>
-                <input type="text" id="position" name="position"><br>
-                <label for="status">Status:</label>
-                <input type="text" id="status" name="status"><br><br>
+                <label for="editPosition">Position:</label>
+                <input type="text" id="editPosition" name="position"><br>
+                <label for="editStatus">Status:</label>
+                <select id="editStatus" name="status">
+                    <option value="active">Active</option>
+                    <option value="onLeave">On Leave</option>
+                </select><br>
                 <div class="form-group">
                     <button id="edit-employee" class="submit" type="submit">Edit Employee</button>
                 </div>
             </form>
         </div>
-    </div>
+    </div>  
 
     <!--View Employee Details-->
     <div id="viewEmployeeModal" class="modal">
-        <div class="modal-content">
+        <div class="modal-content" id="view-employee-details">
             <span class="close">&times;</span>
             <div id="view_employee_header">
                 <h2>View Employee</h2>
                 <i class="fa-solid fa-pen-to-square" id="edit_employee"></i>
             </div>
             <hr>
-            <p>Last Name</p>
-            <p>First Name</p>
-            <p>Contact Information</p>
-            <p>Department</p>
-            <p>Position</p>
-            <p>Status</p>
+            <p id="viewLastName"><b>Last Name</b></p>
+            <p id="viewFirstName"><b>First Name</b></p>
+            <p id="viewContactInfo"><b>Contact Information</b></p>
+            <p id="viewDepartment"><b>Department</b></p>
+            <p id="viewPosition"><b>Position</b></p>
+            <p id="viewStatus"><b>Status</b></p>
             <h3>Leave History</h3>
             <table>
-                <tr>
-                    <th>Leave Type</th>
-                    <th>Start Date</th>
-                    <th>End Date</th>
-                    <th>Days</th>
-                </tr>  
+                <thead>
+                    <tr>
+                        <th>Leave Type</th>
+                        <th>Start Date</th>
+                        <th>End Date</th>
+                        <th>Days</th>
+                    </tr> 
+                </thead>
+                <tbody>
+                    <tr> 
+                        <td>Vacation</td>
+                        <td>01/06/2021</td>
+                        <td>01/10/2021</td>
+                        <td>5</td>
+                    </tr> 
+                    <tr> 
+                        <td>Vacation</td>
+                        <td>01/06/2021</td>
+                        <td>01/10/2021</td>
+                        <td>5</td>
+                    </tr> 
+                    <tr> 
+                        <td>Vacation</td>
+                        <td>01/06/2021</td>
+                        <td>01/10/2021</td>
+                        <td>5</td>
+                    </tr> 
+                </tbody>
             </table> 
             <h3>Payslip Overview</h3>
             <table>
-                <tr>
-                    <th>Pay Period</th>
-                    <th>Pay Date</th>
-                    <th>Net Pay</th>
-                </tr>
+                <thead>
+                    <tr>
+                        <th>Pay Period</th>
+                        <th>Pay Date</th>
+                        <th>Net Pay</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td>01/01/2021 - 01/15/2021</td>
+                        <td>01/15/2021</td>
+                        <td>$5000</td>
+                    </tr>    
+                    <tr>
+                        <td>01/01/2021 - 01/15/2021</td>
+                        <td>01/15/2021</td>
+                        <td>$5000</td>
+                    </tr>  
+                    <tr>
+                        <td>01/01/2021 - 01/15/2021</td>
+                        <td>01/15/2021</td>
+                        <td>$5000</td>
+                    </tr>  
+                    <tr>
+                        <td>01/01/2021 - 01/15/2021</td>
+                        <td>01/15/2021</td>
+                        <td>$5000</td>
+                    </tr>  
+                    <tr>
+                        <td>01/01/2021 - 01/15/2021</td>
+                        <td>01/15/2021</td>
+                        <td>$5000</td>
+                    </tr>  
+                    <tr>
+                        <td>01/01/2021 - 01/15/2021</td>
+                        <td>01/15/2021</td>
+                        <td>$5000</td>
+                    </tr>  
+                    <tr>
+                        <td>01/01/2021 - 01/15/2021</td>
+                        <td>01/15/2021</td>
+                        <td>$5000</td>
+                    </tr>  
+                               
+                </tbody>
             </table>
         </div>
     </div>
@@ -514,19 +587,27 @@
         var edit_modal = document.getElementById("editEmployeeModal");
         var view_modal = document.getElementById("viewEmployeeModal");
 
-        // Get the button that opens the add modal
         var add_btn = document.getElementById("add_employee");
-        
+        var edit_btn = document.getElementById("edit_employee")
 
-        // Get the <span> element that closes the modals
         var spans = document.getElementsByClassName("close");
 
-        // When the user clicks the button, open the add modal 
         add_btn.onclick = function() {
             add_modal.style.display = "block";
         }
 
-        // When the user clicks on <span> (x), close the modals
+        edit_btn.onclick = function() {
+            // Populate the edit modal with employee data (this is just a placeholder, you need to fetch the actual data)
+            document.getElementById("editLastName").value = "Doe"; // Replace with actual data
+            document.getElementById("editFirstName").value = "John"; // Replace with actual data
+            document.getElementById("editContactInfo").value = "+09123456789"; // Replace with actual data
+            document.getElementById("editDepartment").value = "it"; // Replace with actual data
+            document.getElementById("editPosition").value = "Web Developer"; // Replace with actual data
+            document.getElementById("editStatus").value = "Active"; // Replace with actual data
+            edit_modal.style.display = "block";
+            view_modal.style.display = "none";
+        }
+
         for (var i = 0; i < spans.length; i++) {
             spans[i].onclick = function() {
                 add_modal.style.display = "none";
@@ -535,7 +616,6 @@
             }
         }
 
-        // When the user clicks anywhere outside of the modals, close them
         window.onclick = function(event) {
             if (event.target == add_modal) {
                 add_modal.style.display = "none";
@@ -548,21 +628,18 @@
             }
         }
 
-        // Get all view links
         var view_links = document.getElementById("view-employee-link");
 
-        // When the user clicks a view link, open the view modal
         view_links.onclick = function(event) {
-            // event.preventDefault();
-            // var employeeId = this.getAttribute("data-id");
+            event.preventDefault();
+            var employeeId = this.getAttribute("data-id");
 
-            //     // Populate the view modal with employee data (this is just a placeholder, you need to fetch the actual data)
-            // document.getElementById("viewLastName").innerText = "Last Name: Doe"; // Replace with actual data
-            // document.getElementById("viewFirstName").innerText = "First Name: John"; // Replace with actual data
-            // document.getElementById("viewContactInfo").innerText = "Contact Information: +09123456789"; // Replace with actual data
-            // document.getElementById("viewDepartment").innerText = "Department: IT Department"; // Replace with actual data
-            // document.getElementById("viewPosition").innerText = "Position: Web Developer"; // Replace with actual data
-            // document.getElementById("viewStatus").innerText = "Status: Active"; // Replace with actual data
+            document.getElementById("viewLastName").innerText = "Last Name: Doe"; 
+            document.getElementById("viewFirstName").innerText = "First Name: John"; 
+            document.getElementById("viewContactInfo").innerText = "Contact Information: +09123456789"; 
+            document.getElementById("viewDepartment").innerText = "Department: IT Department"; 
+            document.getElementById("viewPosition").innerText = "Position: Web Developer"; 
+            document.getElementById("viewStatus").innerText = "Status: Active"; 
             view_modal.style.display = "block";
             
         }
