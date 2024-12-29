@@ -66,7 +66,7 @@
             background-color: #F6F4F0; 
             color: #2E5077; 
             border: 1px solid #2E5077;
-            border-radius: 5px; 
+            border-radius: 15px; 
             font-family: "Poppins", sans-serif;
             font-style: normal;
             font-size: 16px;
