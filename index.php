@@ -38,7 +38,7 @@
             $employeeDetails = $stmt->fetch(PDO::FETCH_ASSOC);
     
             // Fetch leave history
-            $leaveSql = "SELECT leaveType, startDate, endDate, DATEDIFF(endDate, startDate) + 1 AS days
+            $leaveSql = "SELECT leaveType, startDate, endDate, DATEDIFF(startDate, endDate) + 1 AS days
                          FROM leaverequest WHERE employeeID = ?";
             $stmt = $pdo->prepare($leaveSql);
             $stmt->execute([$employeeID]);
@@ -810,8 +810,8 @@
                                 var row = `
                                     <tr>
                                         <td>${leave.leaveType}</td>
-                                        <td>${leave.startDate}</td>
                                         <td>${leave.endDate}</td>
+                                        <td>${leave.startDate}</td>
                                         <td>${leave.days}</td>
                                     </tr>
                                 `;
