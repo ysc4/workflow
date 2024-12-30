@@ -25,49 +25,47 @@
 		echo "Connection failed: " . $e->getMessage();
 	}
 
-    if (isset($_GET['id'])) {
-        header('Content-Type: application/json');
-        $employeeID = $_GET['id'];
-        
-        // Fetch employee data
-        $sql = "SELECT * FROM employee WHERE employeeID = ?";
-        $stmt = $pdo->prepare($sql);
-        $stmt->execute([$employeeID]);
-        $employee = $stmt->fetch(PDO::FETCH_ASSOC);
-    
-        if ($employee) {
-            echo json_encode([
-                "success" => true,
-                "lastName" => $employee['lastName'],
-                "firstName" => $employee['firstName'],
-                "contactInformation" => $employee['contactInformation'],
-                "department" => $employee['department'],
-                "position" => $employee['position'],
-                "status" => "Active" // Example status, modify as needed
-            ]);
-        } else {
-            echo json_encode(["success" => false]);
-        }
-        exit;
-    } 
-
-    if (isset($_GET['fetchLeaveRequests']) && isset($_GET['employeeID'])) {
+    if (isset($_GET['fetchEmployeeData']) && isset($_GET['employeeID'])) {
         header('Content-Type: application/json');
         $employeeID = $_GET['employeeID'];
-        
-        // Fetch leave request data
-        $sql = "SELECT * FROM leaverequest WHERE employeeID = ?";
-        $stmt = $pdo->prepare($sql);
-        $stmt->execute([$employeeID]);
-        $leaveRequests = $stmt->fetchAll(PDO::FETCH_ASSOC);
     
-        if ($leaveRequests) {
-            echo json_encode(["success" => true, "data" => $leaveRequests]);
-        } else {
-            echo json_encode(["success" => false, "message" => "No leave requests found."]);
+        try {
+            // Fetch employee details
+            $employeeSql = "SELECT firstName, lastName, contactInformation, department, position
+                            FROM employee WHERE employeeID = ?";
+            $stmt = $pdo->prepare($employeeSql);
+            $stmt->execute([$employeeID]);
+            $employeeDetails = $stmt->fetch(PDO::FETCH_ASSOC);
+    
+            // Fetch leave history
+            $leaveSql = "SELECT leaveType, startDate, endDate, DATEDIFF(endDate, startDate) + 1 AS days
+                         FROM leaverequest WHERE employeeID = ?";
+            $stmt = $pdo->prepare($leaveSql);
+            $stmt->execute([$employeeID]);
+            $leaveHistory = $stmt->fetchAll(PDO::FETCH_ASSOC);
+    
+            // Fetch payment history
+            $paymentSql = "SELECT paymentDate, netPay 
+                           FROM payroll WHERE employeeID = ?";
+            $stmt = $pdo->prepare($paymentSql);
+            $stmt->execute([$employeeID]);
+            $paymentHistory = $stmt->fetchAll(PDO::FETCH_ASSOC);
+    
+            if ($employeeDetails) {
+                echo json_encode([
+                    "success" => true,
+                    "employeeDetails" => $employeeDetails,
+                    "leaveHistory" => $leaveHistory,
+                    "paymentHistory" => $paymentHistory
+                ]);
+            } else {
+                echo json_encode(["success" => false, "message" => "Employee not found."]);
+            }
+        } catch (PDOException $e) {
+            echo json_encode(["success" => false, "message" => "Database error: " . $e->getMessage()]);
         }
         exit;
-    }    
+    }
 
     if (isset($_POST['lastName'])) {
 		$ln = $_POST['lastName'];
@@ -503,9 +501,9 @@
                             <label for="departmentFilter">&emsp; Department:</label>
                             <select id="departmentFilter" name="department">
                                 <option value="">All Departments</option>
-                                <option value="it">IT Department</option>
-                                <option value="hr">HR Department</option>
-                                <option value="finance">Finance Department</option>
+                                <option value="IT Department">IT Department</option>
+                                <option value="HR Department">HR Department</option>
+                                <option value="Finance Department">Finance Department</option>
                             </select>
                             <i class="fa-solid fa-sync" id="filterRefreshIcon" style="cursor: pointer; margin-left: 10px;"></i>
                         </form>
@@ -662,7 +660,7 @@
             <p id="viewPosition"><b>Position</b></p>
             <p id="viewStatus"><b>Status</b></p>
             <h3>Leave History</h3>
-            <table id = "leaveRequestTable">
+            <table id = "leaveHistoryTable">
                 <thead>
                     <tr>
                         <th>Leave Type</th>
@@ -675,7 +673,7 @@
                 </tbody>
             </table> 
             <h3>Payslip Overview</h3>
-            <table>
+            <table id = "paymentHistoryTable">
                 <thead>
                     <tr>
                         <th>Pay Period</th>
@@ -791,59 +789,61 @@
                 event.preventDefault();
                 var employeeId = this.getAttribute("data-id");
 
-                // Fetch data from the server
-                fetch(`index.php?id=${employeeId}`)
+                // Fetch combined employee data
+                fetch(`index.php?fetchEmployeeData=true&employeeID=${employeeId}`)
                     .then((response) => response.json())
                     .then((data) => {
                         if (data.success) {
-                            // Populate modal with employee data
-                            var tbody = document.querySelector("#leaveHistoryTable tbody");
-                            tbody.innerHTML = ""; // Clear previous rows
-                            document.getElementById("viewLastName").innerText = `Last Name: ${data.lastName}`;
-                            document.getElementById("viewFirstName").innerText = `First Name: ${data.firstName}`;
-                            document.getElementById("viewContactInfo").innerText = `Contact Information: ${data.contactInformation}`;
-                            document.getElementById("viewDepartment").innerText = `Department: ${data.department}`;
-                            document.getElementById("viewPosition").innerText = `Position: ${data.position}`;
-                            document.getElementById("viewStatus").innerText = `Status: ${data.status}`;
-                        } else {
-                            alert("Employee data could not be loaded.");
-                        }
-                    })
-                    .catch((error) => {
-                        console.error("Error fetching employee details:", error);
-                    });
-                    
-                // Fetch leave request data
-                fetch(`index.php?fetchLeaveRequests=true&employeeID=${employeeId}`)
-                    .then((response) => response.json())
-                    .then((data) => {
-                        if (data.success) {
-                            // Populate the leave request table
-                            var tbody = document.querySelector("#leaveRequestTable tbody");
-                            tbody.innerHTML = ""; // Clear previous rows
-                            data.data.forEach(function (request) {
+                            // Populate employee details
+                            var details = data.employeeDetails;
+                            document.getElementById("viewLastName").innerText = "Last Name: " + details.lastName;
+                            document.getElementById("viewFirstName").innerText = "First Name: " + details.firstName;
+                            document.getElementById("viewContactInfo").innerText = "Contact Information: " + details.contactInformation;
+                            document.getElementById("viewDepartment").innerText = "Department: " + details.department;
+                            document.getElementById("viewPosition").innerText = "Position: " + details.position;
+                            document.getElementById("viewStatus").innerText = "Status: " + details.status;
+
+                            // Populate leave history
+                            var leaveTbody = document.querySelector("#leaveHistoryTable tbody");
+                            leaveTbody.innerHTML = ""; // Clear previous rows
+                            data.leaveHistory.forEach(function (leave) {
                                 var row = `
                                     <tr>
-                                        <td>${request.leaveType}</td>
-                                        <td>${request.startDate}</td>
-                                        <td>${request.endDate}</td>
-                                        <td>5</td>
+                                        <td>${leave.leaveType}</td>
+                                        <td>${leave.startDate}</td>
+                                        <td>${leave.endDate}</td>
+                                        <td>${leave.days}</td>
                                     </tr>
                                 `;
-                                tbody.innerHTML += row;
+                                leaveTbody.innerHTML += row;
+                            });
+
+                            // Populate payment history
+                            var paymentTbody = document.querySelector("#paymentHistoryTable tbody");
+                            paymentTbody.innerHTML = ""; // Clear previous rows
+                            data.paymentHistory.forEach(function (payment) {
+                                var row = `
+                                    <tr>
+                                        <td>${payment.paymentPeriod}</td>
+                                        <td>${payment.paymentDate}</td>
+                                        <td>${payment.netPay}</td>
+                                    </tr>
+                                `;
+                                paymentTbody.innerHTML += row;
                             });
                         } else {
-                            alert(data.message || "Could not fetch leave requests.");
+                            alert(data.message || "Could not fetch employee data.");
                         }
                     })
                     .catch((error) => {
-                        console.error("Error fetching leave requests:", error);
+                        console.error("Error fetching employee data:", error);
                     });
 
-                        // Display the modal
-                        document.getElementById("viewEmployeeModal").style.display = "block";
+                // Show the modal
+                document.getElementById("viewEmployeeModal").style.display = "block";
             });
         });
+
 
         // Close modal functionality
         document.querySelector(".close").addEventListener("click", function () {
