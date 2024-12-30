@@ -19,12 +19,10 @@
 		
 		// Create a PDO instance
 		$pdo = new PDO($dsn, $user, $pass, $options);
-		$asdsadsa = 1;
 		
 	} catch (PDOException $e) {
 		// Handle connection errors
 		echo "Connection failed: " . $e->getMessage();
-		$asdsadsa = 0;
 	}
 
     if (isset($_GET['id'])) {
@@ -70,6 +68,21 @@
         }
         exit;
     }    
+
+    if (isset($_POST['lastName'])) {
+		$ln = $_POST['lastName'];
+		$fn = $_POST['firstName'];
+        $ci = $_POST['contactInformation'];
+        $dp = $_POST['department'];
+        $p = $_POST['position'];
+
+		echo "$ln, $fn, $ci, $dp, $p";
+        $sql = "INSERT INTO employee (lastName, firstName, department, contactInformation, position, leaveBalance) VALUES (:ln, :fn, :dp, :ci, :p, 10)";
+        $stmt = $pdo->prepare($sql);
+        $stmt->execute(['ln' => $ln, 'fn' => $fn, 'ci' => $ci, 'dp' => $dp, 'ci' => $ci, 'p' => $p]);
+
+        echo "<br> Data inserted successfully <br>";
+	}
 ?>
 <!DOCTYPE html>
 <html lang="en">
@@ -573,18 +586,18 @@
             <span class="close">&times;</span>
             <h2>Add Employee</h2>
             <hr>
-            <form id="addEmployeeForm">
+            <form id="addEmployeeForm" method="POST">
                 <label for="lastName">Last Name:</label>
                 <input type="text" id="lastName" name="lastName"><br>
                 <label for="firstName">First Name:</label>
                 <input type="text" id="firstName" name="firstName"><br>
                 <label for="contactInfo">Contact Information:</label>
-                <input type="text" id="contactInfo" name="contactInfo"><br>
+                <input type="text" id="contactInfo" name="contactInformation"><br>
                 <label for="department">Department:</label>
-                <select id="department">
-                    <option value="it">IT Department</option>
-                    <option value="hr">HR Department</option>
-                    <option value="finance">Finance Department</option>
+                <select id="department" name = "department">
+                    <option value="IT Department">IT Department</option>
+                    <option value="HR Department">HR Department</option>
+                    <option value="Finance Department">Finance Department</option>
                 </select><br>
                 <label for="position">Position:</label>
                 <input type="text" id="position" name="position"><br>
