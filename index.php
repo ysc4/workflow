@@ -694,7 +694,7 @@
 
     <!-- Generate Payslip Modal -->
     <div id="generatePayslipModal" class="modal">
-        <div class="modal-content" id="leave-overview-report">
+        <div class="modal-content">
             <span class="close">&times;</span>
             <h2>Generate Payslip</h2>
             <hr>
