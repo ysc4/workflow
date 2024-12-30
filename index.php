@@ -330,6 +330,12 @@
             text-align: center;
             vertical-align: middle;
         }
+        #netPay {
+            color: #F6F4F0;
+            background-color: #4DA1A9;
+            font-weight: bold;
+            font-style: italic;
+        }
     </style>
 </head>
 <body>
@@ -705,12 +711,24 @@
             <hr>
             <p id="viewPayslipID"><b>Payslip ID</b></p>
             <p id="viewPayDate"><b>Pay Date</b></p>
+            <p id="viewPayPeriod"><b>Pay Period</b></p>
             <table>
                 <thead>
                     <tr>
                         <th>Payroll Breakdown</th>
                     </tr>
                 </thead>
+                <tbody>
+                    <tr>
+                        <td>Hours Worked: 24 hours
+                            <br>Pay per Hour: $10
+                            <br>Deductions: $100
+                        </td>
+                    </tr>  
+                    <tr>
+                        <td id="netPay">Net Pay: $140</td>
+                    </tr>
+                </tbody>
             </table>
         </div>
     </div>
@@ -910,6 +928,20 @@
         generate_btn.onclick = function() {
             generate_payslip_modal.style.display = 'block';
         }
+
+        // View Payslip Details
+
+        var view_payslip_icons = document.querySelectorAll('.view-payslip-icon');
+        view_payslip_icons.forEach(function(icon) {
+            icon.addEventListener('click', function() {
+                var payslip_id = icon.getAttribute('data-payslip-id');
+                // Fetch payslip data based on payslip_id (this is just a placeholder, you need to fetch the actual data)
+                document.getElementById('viewPayslipID').innerText = "Payslip ID: 1"; // Replace with actual data
+                document.getElementById('viewPayDate').innerText = "Pay Date: 01/15/2021"; // Replace with actual data
+                document.getElementById('viewPayPeriod').innerText = "Pay Period: 01/01/2021 - 01/15/2021"; // Replace with actual data
+                document.getElementById('PayslipOverviewModal').style.display = 'block';
+            });
+        });
 
         // Add active class to the first navigation
         document.getElementById('leave_nav').addEventListener('click', function() {
