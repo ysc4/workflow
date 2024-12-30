@@ -1,3 +1,76 @@
+<?php
+	$host = ''; // Hostname or IP address
+	$db = 'u415861906_infosec2222'; // Database name
+	$user = 'root'; // MySQL username
+	$port = "3307";
+	$pass = ''; // MySQL password
+	$charset = 'utf8mb4'; // Character set (optional but recommended)
+
+	try {
+		// Set DSN (Data Source Name)
+		$dsn = "mysql:host=$host;port=$port;dbname=$db;charset=$charset";
+		
+		// Options for PDO
+		$options = [
+			PDO::ATTR_ERRMODE            => PDO::ERRMODE_EXCEPTION, // Enables exceptions for errors
+			PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC,       // Fetches results as associative arrays
+			PDO::ATTR_EMULATE_PREPARES   => false,                  // Disables emulated prepared statements
+		];
+		
+		// Create a PDO instance
+		$pdo = new PDO($dsn, $user, $pass, $options);
+		$asdsadsa = 1;
+		
+	} catch (PDOException $e) {
+		// Handle connection errors
+		echo "Connection failed: " . $e->getMessage();
+		$asdsadsa = 0;
+	}
+
+    if (isset($_GET['id'])) {
+        header('Content-Type: application/json');
+        $employeeID = $_GET['id'];
+        
+        // Fetch employee data
+        $sql = "SELECT * FROM employee WHERE employeeID = ?";
+        $stmt = $pdo->prepare($sql);
+        $stmt->execute([$employeeID]);
+        $employee = $stmt->fetch(PDO::FETCH_ASSOC);
+    
+        if ($employee) {
+            echo json_encode([
+                "success" => true,
+                "lastName" => $employee['lastName'],
+                "firstName" => $employee['firstName'],
+                "contactInformation" => $employee['contactInformation'],
+                "department" => $employee['department'],
+                "position" => $employee['position'],
+                "status" => "Active" // Example status, modify as needed
+            ]);
+        } else {
+            echo json_encode(["success" => false]);
+        }
+        exit;
+    } 
+
+    if (isset($_GET['fetchLeaveRequests']) && isset($_GET['employeeID'])) {
+        header('Content-Type: application/json');
+        $employeeID = $_GET['employeeID'];
+        
+        // Fetch leave request data
+        $sql = "SELECT * FROM leaverequest WHERE employeeID = ?";
+        $stmt = $pdo->prepare($sql);
+        $stmt->execute([$employeeID]);
+        $leaveRequests = $stmt->fetchAll(PDO::FETCH_ASSOC);
+    
+        if ($leaveRequests) {
+            echo json_encode(["success" => true, "data" => $leaveRequests]);
+        } else {
+            echo json_encode(["success" => false, "message" => "No leave requests found."]);
+        }
+        exit;
+    }    
+?>
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -326,10 +399,6 @@
             font-style: normal;
             font-size: 14px;
         }
-        #view-icon-cell {
-            text-align: center;
-            vertical-align: middle;
-        }
     </style>
 </head>
 <body>
@@ -367,19 +436,28 @@
                         <th>POSITION</th>
                         <th>CONTACT INFORMATION</th>
                         <th>STATUS</th>
-                        <th>VIEW</th>
                     </tr>
                 </thead>
                 <tbody>
-                    <tr>
-                        <td>1</td>
-                        <td>Doe</td>
-                        <td>John</td>
-                        <td>Web Developer</td>
-                        <td>+09123456789</td>
-                        <td>Active</td>
-                        <td id="view-icon-cell"><i class="fa-solid fa-eye view-employee-icon" data-id="1" style="cursor: pointer;"></i></td>
-                    </tr>
+                    <?php
+                    $sql = "SELECT * FROM employee";
+                    $stmt = $pdo->query($sql);
+                    $result = $stmt->fetchAll();
+
+                    foreach ($result as $row): ?>
+                        <tr>
+                            <td>
+                                <a href="#" class="view-employee-link" data-id="<?php echo $row['employeeID']; ?>">
+                                    <?php echo htmlspecialchars($row['employeeID']); ?>
+                                </a>
+                            </td>
+                            <td><?php echo htmlspecialchars($row['firstName']); ?></td>
+                            <td><?php echo htmlspecialchars($row['lastName']); ?></td>
+                            <td><?php echo htmlspecialchars($row['position']); ?></td>
+                            <td><?php echo htmlspecialchars($row['contactInformation']); ?></td>
+                            <td>Present</td>
+                        </tr>
+                    <?php endforeach; ?>
                 </tbody>
             </table>
         </div>
@@ -462,8 +540,7 @@
                 </select>
             </div>
             <div id="right">
-                <i class="fa-solid fa-download" id="generate-payroll"></i>  
-                <i class="fa-solid fa-plus" id="add_payslip"></i>            
+                <i class="fa-solid fa-download" id="generate-payroll"></i>             
             </div>
         </div>
         <div class="container" id="payroll-table">
@@ -475,7 +552,6 @@
                         <th>FIRST NAME</th>
                         <th>DATE RECEIVED</th>
                         <th>STATUS</th>
-                        <th>VIEW</th>
                     </tr>
                 </thead>
                 <tbody id="leaveOverviewTable">
@@ -485,7 +561,6 @@
                         <td>Emily</td>
                         <td>12/09/2020</td>
                         <td>Received</td>
-                        <td id="view-icon-cell"><i class="fa-solid fa-eye view-payslip-icon" data-id="1" style="cursor: pointer;"></i></td>
                     </tr>
                 </tbody>
             </table>
@@ -574,7 +649,7 @@
             <p id="viewPosition"><b>Position</b></p>
             <p id="viewStatus"><b>Status</b></p>
             <h3>Leave History</h3>
-            <table>
+            <table id = "leaveRequestTable">
                 <thead>
                     <tr>
                         <th>Leave Type</th>
@@ -584,24 +659,6 @@
                     </tr> 
                 </thead>
                 <tbody>
-                    <tr> 
-                        <td>Vacation</td>
-                        <td>01/06/2021</td>
-                        <td>01/10/2021</td>
-                        <td>5</td>
-                    </tr> 
-                    <tr> 
-                        <td>Vacation</td>
-                        <td>01/06/2021</td>
-                        <td>01/10/2021</td>
-                        <td>5</td>
-                    </tr> 
-                    <tr> 
-                        <td>Vacation</td>
-                        <td>01/06/2021</td>
-                        <td>01/10/2021</td>
-                        <td>5</td>
-                    </tr> 
                 </tbody>
             </table> 
             <h3>Payslip Overview</h3>
@@ -668,53 +725,6 @@
         </div>
     </div>
 
-    <!-- Generate Payslip Modal -->
-    <div id="generatePayslipModal" class="modal">
-        <div class="modal-content" id="leave-overview-report">
-            <span class="close">&times;</span>
-            <h2>Generate Payslip</h2>
-            <hr>
-            <form>
-                <label for="employeeID">Employee ID:</label>
-                <input type="text" id="inputEmployeeID" name="employeeID"><br>
-                <label for="employeeName">Employee Name:</label>
-                <input type="text" id="inputEmployeeName" name="employeeName" readonly><br>
-                <label for="position">Position:</label>
-                <input type="text" id="position" name="position" readonly><br>
-                <label for="startDate">Start Pay Date:</label>
-                <input type="date" id="startPayDate" name="startPayDate"><br>
-                <label for="endDate">End Pay Date:</label>
-                <input type="date" id="endPayDate" name="endPayDate"><br>
-                <label for="hoursWorked">Hour/s Worked:</label>
-                <input type="text" id="inputHoursWorked" name="hoursWorked" readonly><br>
-                <label for="payPerHour">Pay per hour:</label>
-                <input type="text" id="inputPayPerDay" name="payPerDay"><br>
-                <label for="deduction">Deduction/s:</label>
-                <input type="text" id="inputDeduction:" name="deduction"><br>
-                <label for="tax">Net Pay:</label>
-                <input type="text" id="calculateNetPay" name="netPay" readonly><br>
-            </form>
-        </div>
-    </div>
-
-    <!-- Payslip Overview Modal -->
-    <div id="PayslipOverviewModal" class="modal">
-        <div class="modal-content">
-            <span class="close">&times;</span>
-            <h2>Payslip Overview</h2>
-            <hr>
-            <p id="viewPayslipID"><b>Payslip ID</b></p>
-            <p id="viewPayDate"><b>Pay Date</b></p>
-            <table>
-                <thead>
-                    <tr>
-                        <th>Payroll Breakdown</th>
-                    </tr>
-                </thead>
-            </table>
-        </div>
-    </div>
-
 
     <script>
         // Get the modal
@@ -722,7 +732,9 @@
         var edit_modal = document.getElementById("editEmployeeModal");
         var view_modal = document.getElementById("viewEmployeeModal");
         var leave_request_modal = document.getElementById("leaveRequestModal");
-        var generate_payslip_modal = document.getElementById("generatePayslipModal");
+
+        var add_btn = document.getElementById("add_employee");
+        var edit_btn = document.getElementById("edit_employee")
 
         var spans = document.getElementsByClassName("close");
         for (var i = 0; i < spans.length; i++) {
@@ -743,39 +755,88 @@
             }
         }
 
-        document.addEventListener('DOMContentLoaded', function() {
-            var viewIcons = document.querySelectorAll('.view-employee-icon');
-            viewIcons.forEach(function(icon) {
-                icon.addEventListener('click', function() {
-                    var employeeId = this.getAttribute('data-id');
-                    // Fetch employee data based on employeeId (this is just a placeholder, you need to fetch the actual data)
-                    document.getElementById('viewLastName').innerText = "Last Name: Doe"; // Replace with actual data
-                    document.getElementById('viewFirstName').innerText = "First Name: John"; // Replace with actual data
-                    document.getElementById('viewPosition').innerText = "Position: Web Developer"; // Replace with actual data
-                    document.getElementById('viewContactInfo').innerText = "Contact Information: +09123456789"; // Replace with actual data
-                    document.getElementById('viewDepartment').innerText = "Department: IT Department"; // Replace with actual data
-                    document.getElementById('viewStatus').innerText = "Status: Active"; // Replace with actual data
-                    document.getElementById('viewEmployeeModal').style.display = 'block';
-                });
+        add_btn.onclick = function() {
+            add_modal.style.display = "block";
+        }
+
+        edit_btn.onclick = function() {
+            document.getElementById("editLastName").value = "Doe"; // Replace with actual data
+            document.getElementById("editFirstName").value = "John"; // Replace with actual data
+            document.getElementById("editContactInfo").value = "+09123456789"; // Replace with actual data
+            document.getElementById("editDepartment").value = "it"; // Replace with actual data
+            document.getElementById("editPosition").value = "Web Developer"; // Replace with actual data
+            document.getElementById("editStatus").value = "Active"; // Replace with actual data
+            edit_modal.style.display = "block";
+            view_modal.style.display = "none";
+        }
+
+        var view_links = document.getElementById("view-employee-link");
+
+        // Select all links with the class 'view-employee-link'
+        document.querySelectorAll(".view-employee-link").forEach(function (link) {
+            link.addEventListener("click", function (event) {
+                event.preventDefault();
+                var employeeId = this.getAttribute("data-id");
+
+                // Fetch data from the server
+                fetch(`index.php?id=${employeeId}`)
+                    .then((response) => response.json())
+                    .then((data) => {
+                        if (data.success) {
+                            // Populate modal with employee data
+                            var tbody = document.querySelector("#leaveHistoryTable tbody");
+                            tbody.innerHTML = ""; // Clear previous rows
+                            document.getElementById("viewLastName").innerText = `Last Name: ${data.lastName}`;
+                            document.getElementById("viewFirstName").innerText = `First Name: ${data.firstName}`;
+                            document.getElementById("viewContactInfo").innerText = `Contact Information: ${data.contactInformation}`;
+                            document.getElementById("viewDepartment").innerText = `Department: ${data.department}`;
+                            document.getElementById("viewPosition").innerText = `Position: ${data.position}`;
+                            document.getElementById("viewStatus").innerText = `Status: ${data.status}`;
+                        } else {
+                            alert("Employee data could not be loaded.");
+                        }
+                    })
+                    .catch((error) => {
+                        console.error("Error fetching employee details:", error);
+                    });
+                    
+                // Fetch leave request data
+                fetch(`index.php?fetchLeaveRequests=true&employeeID=${employeeId}`)
+                    .then((response) => response.json())
+                    .then((data) => {
+                        if (data.success) {
+                            // Populate the leave request table
+                            var tbody = document.querySelector("#leaveRequestTable tbody");
+                            tbody.innerHTML = ""; // Clear previous rows
+                            data.data.forEach(function (request) {
+                                var row = `
+                                    <tr>
+                                        <td>${request.leaveType}</td>
+                                        <td>${request.startDate}</td>
+                                        <td>${request.endDate}</td>
+                                        <td>5</td>
+                                    </tr>
+                                `;
+                                tbody.innerHTML += row;
+                            });
+                        } else {
+                            alert(data.message || "Could not fetch leave requests.");
+                        }
+                    })
+                    .catch((error) => {
+                        console.error("Error fetching leave requests:", error);
+                    });
+
+                        // Display the modal
+                        document.getElementById("viewEmployeeModal").style.display = "block";
             });
+        });
 
-            var add_btn = document.getElementById("add_employee");
-            var edit_btn = document.getElementById("edit_employee");
-
-            add_btn.onclick = function() {
-                add_modal.style.display = "block";
-            }
-
-            edit_btn.onclick = function() {
-                document.getElementById("editLastName").value = "Doe"; // Replace with actual data
-                document.getElementById("editFirstName").value = "John"; // Replace with actual data
-                document.getElementById("editContactInfo").value = "+09123456789"; // Replace with actual data
-                document.getElementById("editDepartment").value = "it"; // Replace with actual data
-                document.getElementById("editPosition").value = "Web Developer"; // Replace with actual data
-                document.getElementById("editStatus").value = "Active"; // Replace with actual data
-                edit_modal.style.display = "block";
-                view_modal.style.display = "none";
-            }
+        // Close modal functionality
+        document.querySelector(".close").addEventListener("click", function () {
+            // Hide the modal
+            document.getElementById("viewEmployeeModal").style.display = "none";
+            history.pushState("", document.title, window.location.pathname);
         });
 
         // Sorting the incoming leave requests
@@ -903,13 +964,6 @@
             var leaveOverviewModal = document.getElementById('leaveOverviewModal');
             leaveOverviewModal.style.display = 'block';
         });
-
-        // Generate Payslip
-        var generate_btn = document.getElementById("add_payslip");
-
-        generate_btn.onclick = function() {
-            generate_payslip_modal.style.display = 'block';
-        }
 
         // Add active class to the first navigation
         document.getElementById('leave_nav').addEventListener('click', function() {
