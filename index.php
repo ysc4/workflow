@@ -326,6 +326,10 @@
             font-style: normal;
             font-size: 14px;
         }
+        #view-icon-cell {
+            text-align: center;
+            vertical-align: middle;
+        }
     </style>
 </head>
 <body>
@@ -363,16 +367,18 @@
                         <th>POSITION</th>
                         <th>CONTACT INFORMATION</th>
                         <th>STATUS</th>
+                        <th>VIEW</th>
                     </tr>
                 </thead>
                 <tbody>
                     <tr>
-                        <td><a href="#viewEmployeeModal" id="view-employee-link" data-id="1">1</a></td>
+                        <td>1</td>
                         <td>Doe</td>
                         <td>John</td>
                         <td>Web Developer</td>
                         <td>+09123456789</td>
                         <td>Active</td>
+                        <td id="view-icon-cell"><i class="fa-solid fa-eye view-employee-icon" data-id="1" style="cursor: pointer;" align="center"></i></td>
                     </tr>
                 </tbody>
             </table>
@@ -667,9 +673,6 @@
         var view_modal = document.getElementById("viewEmployeeModal");
         var leave_request_modal = document.getElementById("leaveRequestModal");
 
-        var add_btn = document.getElementById("add_employee");
-        var edit_btn = document.getElementById("edit_employee")
-
         var spans = document.getElementsByClassName("close");
         for (var i = 0; i < spans.length; i++) {
             spans[i].onclick = function() {
@@ -689,35 +692,40 @@
             }
         }
 
-        add_btn.onclick = function() {
-            add_modal.style.display = "block";
-        }
+        document.addEventListener('DOMContentLoaded', function() {
+            var viewIcons = document.querySelectorAll('.view-employee-icon');
+            viewIcons.forEach(function(icon) {
+                icon.addEventListener('click', function() {
+                    var employeeId = this.getAttribute('data-id');
+                    // Fetch employee data based on employeeId (this is just a placeholder, you need to fetch the actual data)
+                    document.getElementById('viewLastName').innerText = "Last Name: Doe"; // Replace with actual data
+                    document.getElementById('viewFirstName').innerText = "First Name: John"; // Replace with actual data
+                    document.getElementById('viewPosition').innerText = "Position: Web Developer"; // Replace with actual data
+                    document.getElementById('viewContactInfo').innerText = "Contact Information: +09123456789"; // Replace with actual data
+                    document.getElementById('viewDepartment').innerText = "Department: IT Department"; // Replace with actual data
+                    document.getElementById('viewStatus').innerText = "Status: Active"; // Replace with actual data
+                    document.getElementById('viewEmployeeModal').style.display = 'block';
+                });
+            });
 
-        edit_btn.onclick = function() {
-            document.getElementById("editLastName").value = "Doe"; // Replace with actual data
-            document.getElementById("editFirstName").value = "John"; // Replace with actual data
-            document.getElementById("editContactInfo").value = "+09123456789"; // Replace with actual data
-            document.getElementById("editDepartment").value = "it"; // Replace with actual data
-            document.getElementById("editPosition").value = "Web Developer"; // Replace with actual data
-            document.getElementById("editStatus").value = "Active"; // Replace with actual data
-            edit_modal.style.display = "block";
-            view_modal.style.display = "none";
-        }
+            var add_btn = document.getElementById("add_employee");
+            var edit_btn = document.getElementById("edit_employee");
 
-        var view_links = document.getElementById("view-employee-link");
+            add_btn.onclick = function() {
+                add_modal.style.display = "block";
+            }
 
-        view_links.onclick = function(event) {
-            event.preventDefault();
-            var employeeId = this.getAttribute("data-id");
-
-            document.getElementById("viewLastName").innerText = "Last Name: Doe"; // Replace with actual data
-            document.getElementById("viewFirstName").innerText = "First Name: John"; // Replace with actual data
-            document.getElementById("viewContactInfo").innerText = "Contact Information: +09123456789"; // Replace with actual data
-            document.getElementById("viewDepartment").innerText = "Department: IT Department"; // Replace with actual data
-            document.getElementById("viewPosition").innerText = "Position: Web Developer"; // Replace with actual data
-            document.getElementById("viewStatus").innerText = "Status: Active"; // Replace with actual data
-            view_modal.style.display = "block";     
-        }
+            edit_btn.onclick = function() {
+                document.getElementById("editLastName").value = "Doe"; // Replace with actual data
+                document.getElementById("editFirstName").value = "John"; // Replace with actual data
+                document.getElementById("editContactInfo").value = "+09123456789"; // Replace with actual data
+                document.getElementById("editDepartment").value = "it"; // Replace with actual data
+                document.getElementById("editPosition").value = "Web Developer"; // Replace with actual data
+                document.getElementById("editStatus").value = "Active"; // Replace with actual data
+                edit_modal.style.display = "block";
+                view_modal.style.display = "none";
+            }
+        });
 
         // Sorting the incoming leave requests
         var sortAscending = true;
