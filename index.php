@@ -378,7 +378,7 @@
                         <td>Web Developer</td>
                         <td>+09123456789</td>
                         <td>Active</td>
-                        <td id="view-icon-cell"><i class="fa-solid fa-eye view-employee-icon" data-id="1" style="cursor: pointer;" align="center"></i></td>
+                        <td id="view-icon-cell"><i class="fa-solid fa-eye view-employee-icon" data-id="1" style="cursor: pointer;"></i></td>
                     </tr>
                 </tbody>
             </table>
@@ -462,7 +462,8 @@
                 </select>
             </div>
             <div id="right">
-                <i class="fa-solid fa-download" id="generate-payroll"></i>             
+                <i class="fa-solid fa-download" id="generate-payroll"></i>  
+                <i class="fa-solid fa-plus" id="add_payslip"></i>            
             </div>
         </div>
         <div class="container" id="payroll-table">
@@ -474,6 +475,7 @@
                         <th>FIRST NAME</th>
                         <th>DATE RECEIVED</th>
                         <th>STATUS</th>
+                        <th>VIEW</th>
                     </tr>
                 </thead>
                 <tbody id="leaveOverviewTable">
@@ -483,6 +485,7 @@
                         <td>Emily</td>
                         <td>12/09/2020</td>
                         <td>Received</td>
+                        <td id="view-icon-cell"><i class="fa-solid fa-eye view-payslip-icon" data-id="1" style="cursor: pointer;"></i></td>
                     </tr>
                 </tbody>
             </table>
@@ -665,6 +668,53 @@
         </div>
     </div>
 
+    <!-- Generate Payslip Modal -->
+    <div id="generatePayslipModal" class="modal">
+        <div class="modal-content" id="leave-overview-report">
+            <span class="close">&times;</span>
+            <h2>Generate Payslip</h2>
+            <hr>
+            <form>
+                <label for="employeeID">Employee ID:</label>
+                <input type="text" id="inputEmployeeID" name="employeeID"><br>
+                <label for="employeeName">Employee Name:</label>
+                <input type="text" id="inputEmployeeName" name="employeeName" readonly><br>
+                <label for="position">Position:</label>
+                <input type="text" id="position" name="position" readonly><br>
+                <label for="startDate">Start Pay Date:</label>
+                <input type="date" id="startPayDate" name="startPayDate"><br>
+                <label for="endDate">End Pay Date:</label>
+                <input type="date" id="endPayDate" name="endPayDate"><br>
+                <label for="hoursWorked">Hour/s Worked:</label>
+                <input type="text" id="inputHoursWorked" name="hoursWorked" readonly><br>
+                <label for="payPerHour">Pay per hour:</label>
+                <input type="text" id="inputPayPerDay" name="payPerDay"><br>
+                <label for="deduction">Deduction/s:</label>
+                <input type="text" id="inputDeduction:" name="deduction"><br>
+                <label for="tax">Net Pay:</label>
+                <input type="text" id="calculateNetPay" name="netPay" readonly><br>
+            </form>
+        </div>
+    </div>
+
+    <!-- Payslip Overview Modal -->
+    <div id="PayslipOverviewModal" class="modal">
+        <div class="modal-content">
+            <span class="close">&times;</span>
+            <h2>Payslip Overview</h2>
+            <hr>
+            <p id="viewPayslipID"><b>Payslip ID</b></p>
+            <p id="viewPayDate"><b>Pay Date</b></p>
+            <table>
+                <thead>
+                    <tr>
+                        <th>Payroll Breakdown</th>
+                    </tr>
+                </thead>
+            </table>
+        </div>
+    </div>
+
 
     <script>
         // Get the modal
@@ -672,6 +722,7 @@
         var edit_modal = document.getElementById("editEmployeeModal");
         var view_modal = document.getElementById("viewEmployeeModal");
         var leave_request_modal = document.getElementById("leaveRequestModal");
+        var generate_payslip_modal = document.getElementById("generatePayslipModal");
 
         var spans = document.getElementsByClassName("close");
         for (var i = 0; i < spans.length; i++) {
@@ -852,6 +903,13 @@
             var leaveOverviewModal = document.getElementById('leaveOverviewModal');
             leaveOverviewModal.style.display = 'block';
         });
+
+        // Generate Payslip
+        var generate_btn = document.getElementById("add_payslip");
+
+        generate_btn.onclick = function() {
+            generate_payslip_modal.style.display = 'block';
+        }
 
         // Add active class to the first navigation
         document.getElementById('leave_nav').addEventListener('click', function() {
