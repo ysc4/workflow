@@ -336,6 +336,10 @@
             font-weight: bold;
             font-style: italic;
         }
+        .button-container {
+            text-align: center;
+            margin-top: 20px;
+        }
     </style>
 </head>
 <body>
@@ -466,6 +470,20 @@
                     <option value="hr">HR Department</option>
                     <option value="finance">Finance Department</option>
                 </select>
+                <select id="payPeriod">
+                    <option value="jan">January</option>
+                    <option value="feb">February</option>
+                    <option value="mar">March</option>
+                    <option value="apr">April</option>
+                    <option value="may">May</option>
+                    <option value="june">June</option>
+                    <option value="july">July</option>
+                    <option value="aug">August</option>
+                    <option value="sep">September</option>
+                    <option value="oct">October</option>
+                    <option value="nov">November</option>
+                    <option value="dec">December</option>
+                </select>
             </div>
             <div id="right">
                 <i class="fa-solid fa-download" id="generate-payroll"></i>  
@@ -484,7 +502,7 @@
                         <th>VIEW</th>
                     </tr>
                 </thead>
-                <tbody id="leaveOverviewTable">
+                <tbody id="payrollOverviewTable">
                     <tr>
                         <td>3</td>
                         <td>Johnson</td>
@@ -700,6 +718,9 @@
                 <label for="tax">Net Pay:</label>
                 <input type="text" id="calculateNetPay" name="netPay" readonly><br>
             </form>
+            <div class="button-container">
+                <button id="generatePayslipButton" class="submit">Generate Payslip</button>
+            </div>
         </div>
     </div>
 
@@ -733,6 +754,29 @@
         </div>
     </div>
 
+    <!-- Payroll Report Modal -->
+    <div id="payslipReportModal" class="modal">
+        <div class="modal-content" id="leave-overview-report">
+            <span class="close">&times;</span>
+            <h2>Payroll Report</h2>
+            <hr>
+            <p id="modalPayrollDepartment">Department:</p>
+            <p id="modalPayPeriod">Pay Period:</p>
+            <table>
+                <thead>
+                    <tr>
+                        <th>PAYROLL ID</th>
+                        <th>EMPLOYEE ID</th>
+                        <th>EMPLOYEE NAME</th>
+                        <th>DATE RECEIVED</th>
+                        <th>AMOUNT</th>
+                    </tr>
+                </thead>
+                <tbody id="payrollTableBody">
+                </tbody>
+            </table>
+        </div>
+    </div>
 
     <script>
         // Get the modal
@@ -930,7 +974,6 @@
         }
 
         // View Payslip Details
-
         var view_payslip_icons = document.querySelectorAll('.view-payslip-icon');
         view_payslip_icons.forEach(function(icon) {
             icon.addEventListener('click', function() {
@@ -942,6 +985,55 @@
                 document.getElementById('PayslipOverviewModal').style.display = 'block';
             });
         });
+
+        // Filter Payroll Table
+        // function filterPayrollTable() {
+        //     var selectedDepartment = document.getElementById('department').value;
+        //     var selectedPayPeriod = document.getElementById('payPeriod').value;
+
+        //     var rows = document.querySelectorAll('#payrollTableBody tr');
+        //     var filteredRows = [];
+
+        //     rows.forEach(function(row) {
+        //         var rowDepartment = row.cells[4].innerText; // Assuming department is in the 5th column
+        //         var rowPayPeriod = row.cells[3].innerText; // Assuming pay period is in the 4th column
+
+        //         var showRow = true;
+
+        //         if (selectedDepartment && rowDepartment !== selectedDepartment) {
+        //             showRow = false;
+        //         }
+        //         if (selectedPayPeriod && !rowPayPeriod.includes(selectedPayPeriod)) {
+        //             showRow = false;
+        //         }
+
+        //         if (showRow) {
+        //             row.style.display = '';
+        //             filteredRows.push(row.cloneNode(true));
+        //         } else {
+        //             row.style.display = 'none';
+        //         }
+        //     });
+
+        //     return filteredRows;
+        // }
+
+        // document.getElementById('generatePayrollReport').addEventListener('click', function() {
+        //     var filteredRows = filterPayrollTable();
+
+        //     var modalTableBody = document.getElementById('payrollTableBody');
+        //     modalTableBody.innerHTML = ''; // Clear existing rows
+        //     filteredRows.forEach(function(row) {
+        //         modalTableBody.appendChild(row);
+        //     });
+
+        //     // Set the filtered values in the modal
+        //     document.getElementById('modalPayrollDepartment').innerText = "Department: " + document.getElementById('department').value || 'All Departments';
+        //     document.getElementById('modalPayPeriod').innerText = "Pay Period: " + document.getElementById('payPeriod').value || 'N/A';
+
+        //     var payrollReportModal = document.getElementById('payslipReportModal');
+        //     payrollReportModal.style.display = 'block';
+        // });
 
         // Add active class to the first navigation
         document.getElementById('leave_nav').addEventListener('click', function() {
