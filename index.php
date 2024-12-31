@@ -67,20 +67,47 @@
         exit;
     }
 
-    if (isset($_POST['lastName'])) {
-		$ln = $_POST['lastName'];
-		$fn = $_POST['firstName'];
+    if (isset($_GET['editEmployee'])) {
+        header('Content-Type: application/json');
+        $input = json_decode(file_get_contents("php://input"), true);
+    
+        $employeeID = $input['employeeID'];
+        $contactInfo = $input['contactInformation'];
+        $department = $input['department'];
+        $position = $input['position'];
+    
+        try {
+            $sql = "UPDATE employee 
+                    SET contactInformation = ?, department = ?, position = ?
+                    WHERE employeeID = ?";
+            $stmt = $pdo->prepare($sql);
+            $stmt->execute([$contactInfo, $department, $position, $employeeID]);
+    
+            echo json_encode(["success" => true]);
+        } catch (PDOException $e) {
+            echo json_encode(["success" => false, "message" => "Database error: " . $e->getMessage()]);
+        }
+        exit;
+    }
+    
+
+    if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['lastName'])) {
+        $ln = $_POST['lastName'];
+        $fn = $_POST['firstName'];
         $ci = $_POST['contactInformation'];
         $dp = $_POST['department'];
         $p = $_POST['position'];
-
-		echo "$ln, $fn, $ci, $dp, $p";
+    
+        // Insert into the database
         $sql = "INSERT INTO employee (lastName, firstName, department, contactInformation, position, leaveBalance) VALUES (:ln, :fn, :dp, :ci, :p, 10)";
         $stmt = $pdo->prepare($sql);
-        $stmt->execute(['ln' => $ln, 'fn' => $fn, 'ci' => $ci, 'dp' => $dp, 'ci' => $ci, 'p' => $p]);
-
-        echo "<br> Data inserted successfully <br>";
-	}
+        $stmt->execute(['ln' => $ln, 'fn' => $fn, 'ci' => $ci, 'dp' => $dp, 'p' => $p]);
+    
+        // Redirect to the same page to prevent resubmission
+        header("Location: index.php");
+        exit();
+    }
+    
 ?>
 <!DOCTYPE html>
 <html lang="en">
@@ -410,6 +437,20 @@
             font-style: normal;
             font-size: 14px;
         }
+        #view-icon-cell {
+            text-align: center;
+            vertical-align: middle;
+        }
+        #netPay {
+            color: #F6F4F0;
+            background-color: #4DA1A9;
+            font-weight: bold;
+            font-style: italic;
+        }
+        .button-container {
+            text-align: center;
+            margin-top: 20px;
+        }
     </style>
 </head>
 <body>
@@ -428,9 +469,9 @@
             <div id="left">
                 <h1>Employees Overview</h1>
                 <select id="department">
-                    <option value="it">IT Department</option>
-                    <option value="hr">HR Department</option>
-                    <option value="finance">Finance Department</option>
+                    <option value="IT Department">IT Department</option>
+                    <option value="HR Department">HR Department</option>
+                    <option value="Finance Department">Finance Department</option>
                 </select>
             </div>
             <div id="right">
@@ -447,28 +488,28 @@
                         <th>POSITION</th>
                         <th>CONTACT INFORMATION</th>
                         <th>STATUS</th>
+                        <th>VIEW</th>
                     </tr>
                 </thead>
                 <tbody>
-                    <?php
-                    $sql = "SELECT * FROM employee";
-                    $stmt = $pdo->query($sql);
-                    $result = $stmt->fetchAll();
+                    <tr>
+                        <?php
+                            $sql = "SELECT * FROM employee";
+                            $stmt = $pdo->query($sql);
+                            $result = $stmt->fetchAll();
 
-                    foreach ($result as $row): ?>
-                        <tr>
-                            <td>
-                                <a href="#" class="view-employee-link" data-id="<?php echo $row['employeeID']; ?>">
-                                    <?php echo htmlspecialchars($row['employeeID']); ?>
-                                </a>
-                            </td>
-                            <td><?php echo htmlspecialchars($row['firstName']); ?></td>
-                            <td><?php echo htmlspecialchars($row['lastName']); ?></td>
-                            <td><?php echo htmlspecialchars($row['position']); ?></td>
-                            <td><?php echo htmlspecialchars($row['contactInformation']); ?></td>
-                            <td>Present</td>
-                        </tr>
-                    <?php endforeach; ?>
+                            foreach ($result as $row): ?>
+                                <tr>
+                                    <td><?php echo htmlspecialchars($row['employeeID']); ?></td>
+                                    <td><?php echo htmlspecialchars($row['firstName']); ?></td>
+                                    <td><?php echo htmlspecialchars($row['lastName']); ?></td>
+                                    <td><?php echo htmlspecialchars($row['position']); ?></td>
+                                    <td><?php echo htmlspecialchars($row['contactInformation']); ?></td>
+                                    <td>Present</td>
+                                    <td id="view-icon-cell"><i class="fa-solid fa-eye view-employee-icon" data-id="<?php echo $row['employeeID']; ?>" style="cursor: pointer;"></i></td>
+                                </tr>
+                        <?php endforeach; ?>
+                    </tr>
                 </tbody>
             </table>
         </div>
@@ -501,9 +542,9 @@
                             <label for="departmentFilter">&emsp; Department:</label>
                             <select id="departmentFilter" name="department">
                                 <option value="">All Departments</option>
-                                <option value="IT Department">IT Department</option>
-                                <option value="HR Department">HR Department</option>
-                                <option value="Finance Department">Finance Department</option>
+                                <option value="it">IT Department</option>
+                                <option value="hr">HR Department</option>
+                                <option value="finance">Finance Department</option>
                             </select>
                             <i class="fa-solid fa-sync" id="filterRefreshIcon" style="cursor: pointer; margin-left: 10px;"></i>
                         </form>
@@ -549,9 +590,24 @@
                     <option value="hr">HR Department</option>
                     <option value="finance">Finance Department</option>
                 </select>
+                <select id="payPeriod">
+                    <option value="jan">January</option>
+                    <option value="feb">February</option>
+                    <option value="mar">March</option>
+                    <option value="apr">April</option>
+                    <option value="may">May</option>
+                    <option value="june">June</option>
+                    <option value="july">July</option>
+                    <option value="aug">August</option>
+                    <option value="sep">September</option>
+                    <option value="oct">October</option>
+                    <option value="nov">November</option>
+                    <option value="dec">December</option>
+                </select>
             </div>
             <div id="right">
-                <i class="fa-solid fa-download" id="generate-payroll"></i>             
+                <i class="fa-solid fa-download" id="generate-payroll"></i>  
+                <i class="fa-solid fa-plus" id="add_payslip"></i>            
             </div>
         </div>
         <div class="container" id="payroll-table">
@@ -563,15 +619,17 @@
                         <th>FIRST NAME</th>
                         <th>DATE RECEIVED</th>
                         <th>STATUS</th>
+                        <th>VIEW</th>
                     </tr>
                 </thead>
-                <tbody id="leaveOverviewTable">
+                <tbody id="payrollOverviewTable">
                     <tr>
                         <td>3</td>
                         <td>Johnson</td>
                         <td>Emily</td>
                         <td>12/09/2020</td>
                         <td>Received</td>
+                        <td id="view-icon-cell"><i class="fa-solid fa-eye view-payslip-icon" data-id="1" style="cursor: pointer;"></i></td>
                     </tr>
                 </tbody>
             </table>
@@ -584,7 +642,7 @@
             <span class="close">&times;</span>
             <h2>Add Employee</h2>
             <hr>
-            <form id="addEmployeeForm" method="POST">
+            <form id="addEmployeeForm" method = "POST">
                 <label for="lastName">Last Name:</label>
                 <input type="text" id="lastName" name="lastName"><br>
                 <label for="firstName">First Name:</label>
@@ -623,15 +681,15 @@
                 <label for="editFirstName">First Name:</label>
                 <input type="text" id="editFirstName" name="firstName" readonly><br>
                 <label for="editContactInfo">Contact Information:</label>
-                <input type="text" id="editContactInfo" name="contactInfo" readonly><br>
+                <input type="text" id="editContactInfo" name="contactInformation" required><br>
                 <label for="editDepartment">Department:</label>
-                <select id="editDepartment" name="department">
-                    <option value="it">IT Department</option>
-                    <option value="hr">HR Department</option>
-                    <option value="finance">Finance Department</option>
+                <select id="editDepartment" name="department" required>
+                    <option value="IT Department">IT Department</option>
+                    <option value="HR Department">HR Department</option>
+                    <option value="Finance Department">Finance Department</option>
                 </select><br>
                 <label for="editPosition">Position:</label>
-                <input type="text" id="editPosition" name="position"><br>
+                <input type="text" id="editPosition" name="position" required><br>
                 <label for="editStatus">Status:</label>
                 <select id="editStatus" name="status">
                     <option value="active">Active</option>
@@ -682,11 +740,6 @@
                     </tr>
                 </thead>
                 <tbody>
-                    <tr>
-                        <td>01/01/2021 - 01/15/2021</td>
-                        <td>01/15/2021</td>
-                        <td>$5000</td>
-                    </tr>           
                 </tbody>
             </table>
         </div>
@@ -736,6 +789,91 @@
         </div>
     </div>
 
+    <!-- Generate Payslip Modal -->
+    <div id="generatePayslipModal" class="modal">
+        <div class="modal-content">
+            <span class="close">&times;</span>
+            <h2>Generate Payslip</h2>
+            <hr>
+            <form>
+                <label for="employeeID">Employee ID:</label>
+                <input type="text" id="inputEmployeeID" name="employeeID"><br>
+                <label for="employeeName">Employee Name:</label>
+                <input type="text" id="inputEmployeeName" name="employeeName" readonly><br>
+                <label for="position">Position:</label>
+                <input type="text" id="position" name="position" readonly><br>
+                <label for="startDate">Start Pay Date:</label>
+                <input type="date" id="startPayDate" name="startPayDate"><br>
+                <label for="endDate">End Pay Date:</label>
+                <input type="date" id="endPayDate" name="endPayDate"><br>
+                <label for="hoursWorked">Hour/s Worked:</label>
+                <input type="text" id="inputHoursWorked" name="hoursWorked" readonly><br>
+                <label for="payPerHour">Pay per hour:</label>
+                <input type="text" id="inputPayPerDay" name="payPerDay"><br>
+                <label for="deduction">Deduction/s:</label>
+                <input type="text" id="inputDeduction:" name="deduction"><br>
+                <label for="tax">Net Pay:</label>
+                <input type="text" id="calculateNetPay" name="netPay" readonly><br>
+            </form>
+            <div class="button-container">
+                <button id="generatePayslipButton" class="submit">Generate Payslip</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Payslip Overview Modal -->
+    <div id="PayslipOverviewModal" class="modal">
+        <div class="modal-content">
+            <span class="close">&times;</span>
+            <h2>Payslip Overview</h2>
+            <hr>
+            <p id="viewPayslipID"><b>Payslip ID</b></p>
+            <p id="viewPayDate"><b>Pay Date</b></p>
+            <p id="viewPayPeriod"><b>Pay Period</b></p>
+            <table>
+                <thead>
+                    <tr>
+                        <th>Payroll Breakdown</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td>Hours Worked: 24 hours
+                            <br>Pay per Hour: $10
+                            <br>Deductions: $100
+                        </td>
+                    </tr>  
+                    <tr>
+                        <td id="netPay">Net Pay: $140</td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <!-- Payroll Report Modal -->
+    <div id="payslipReportModal" class="modal">
+        <div class="modal-content" id="leave-overview-report">
+            <span class="close">&times;</span>
+            <h2>Payroll Report</h2>
+            <hr>
+            <p id="modalPayrollDepartment">Department:</p>
+            <p id="modalPayPeriod">Pay Period:</p>
+            <table>
+                <thead>
+                    <tr>
+                        <th>PAYROLL ID</th>
+                        <th>EMPLOYEE ID</th>
+                        <th>EMPLOYEE NAME</th>
+                        <th>DATE RECEIVED</th>
+                        <th>AMOUNT</th>
+                    </tr>
+                </thead>
+                <tbody id="payrollTableBody">
+                </tbody>
+            </table>
+        </div>
+    </div>
 
     <script>
         // Get the modal
@@ -743,9 +881,7 @@
         var edit_modal = document.getElementById("editEmployeeModal");
         var view_modal = document.getElementById("viewEmployeeModal");
         var leave_request_modal = document.getElementById("leaveRequestModal");
-
-        var add_btn = document.getElementById("add_employee");
-        var edit_btn = document.getElementById("edit_employee")
+        var generate_payslip_modal = document.getElementById("generatePayslipModal");
 
         var spans = document.getElementsByClassName("close");
         for (var i = 0; i < spans.length; i++) {
@@ -766,26 +902,9 @@
             }
         }
 
-        add_btn.onclick = function() {
-            add_modal.style.display = "block";
-        }
-
-        edit_btn.onclick = function() {
-            document.getElementById("editLastName").value = "Doe"; // Replace with actual data
-            document.getElementById("editFirstName").value = "John"; // Replace with actual data
-            document.getElementById("editContactInfo").value = "+09123456789"; // Replace with actual data
-            document.getElementById("editDepartment").value = "it"; // Replace with actual data
-            document.getElementById("editPosition").value = "Web Developer"; // Replace with actual data
-            document.getElementById("editStatus").value = "Active"; // Replace with actual data
-            edit_modal.style.display = "block";
-            view_modal.style.display = "none";
-        }
-
-        var view_links = document.getElementById("view-employee-link");
-
-        // Select all links with the class 'view-employee-link'
-        document.querySelectorAll(".view-employee-link").forEach(function (link) {
-            link.addEventListener("click", function (event) {
+        document.addEventListener('DOMContentLoaded', function() {
+            document.querySelectorAll(".view-employee-icon").forEach(function (icon) {
+            icon.addEventListener("click", function (event) {
                 event.preventDefault();
                 var employeeId = this.getAttribute("data-id");
 
@@ -826,7 +945,7 @@
                                     <tr>
                                         <td>${payment.paymentPeriod}</td>
                                         <td>${payment.paymentDate}</td>
-                                        <td>${payment.netPay}</td>
+                                        <td>$${payment.netPay}</td>
                                     </tr>
                                 `;
                                 paymentTbody.innerHTML += row;
@@ -839,17 +958,98 @@
                         console.error("Error fetching employee data:", error);
                     });
 
-                // Show the modal
-                document.getElementById("viewEmployeeModal").style.display = "block";
+                    // Show the modal
+                    document.getElementById("viewEmployeeModal").style.display = "block";
+                });
             });
+
+            var add_btn = document.getElementById("add_employee");
+            var edit_btn = document.getElementById("edit_employee");
+
+            add_btn.onclick = function() {
+                add_modal.style.display = "block";
+            }
+
+            edit_btn.onclick = function() {
+                // Get current employee details from the View Employee Modal
+                const firstName = document.getElementById("viewFirstName").innerText.split(": ")[1];
+                const lastName = document.getElementById("viewLastName").innerText.split(": ")[1];
+                const contactInfo = document.getElementById("viewContactInfo").innerText.split(": ")[1];
+                const department = document.getElementById("viewDepartment").innerText.split(": ")[1];
+                const position = document.getElementById("viewPosition").innerText.split(": ")[1];
+                const status = document.getElementById("viewStatus").innerText.split(": ")[1];
+
+                document.getElementById("editFirstName").value = firstName;
+                document.getElementById("editLastName").value = lastName;
+                document.getElementById("editContactInfo").value = contactInfo;
+                document.getElementById("editPosition").value = position;
+                document.getElementById("editStatus").value = status;
+                const departmentDropdown = document.getElementById("editDepartment");
+                departmentDropdown.innerHTML = ""; // Clear existing options
+                const departments = ["Finance Department", "IT Department", "HR Department"]; // Example departments
+                departments.forEach((dept) => {
+                    const option = document.createElement("option");
+                    option.value = dept;
+                    option.textContent = dept;
+                    if (dept === department) {
+                        option.selected = true; // Mark the current department as selected
+                    }
+                    departmentDropdown.appendChild(option);
+                });
+                departmentDropdown.value = department;
+
+                edit_modal.style.display = "block";
+                view_modal.style.display = "none";
+            }
         });
 
+        document.getElementById("editEmployeeForm").addEventListener("submit", function (event) {
+            event.preventDefault(); // Prevent form submission from reloading the page
 
-        // Close modal functionality
-        document.querySelector(".close").addEventListener("click", function () {
-            // Hide the modal
-            document.getElementById("viewEmployeeModal").style.display = "none";
-            history.pushState("", document.title, window.location.pathname);
+            const employeeId = document.querySelector(".view-employee-icon").getAttribute("data-id");
+            const contactInfo = document.getElementById("editContactInfo").value;
+            const department = document.getElementById("editDepartment").value;
+            const position = document.getElementById("editPosition").value;
+
+            // Send the data to the server
+            fetch("index.php?editEmployee=true", {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/json",
+                },
+                body: JSON.stringify({
+                    employeeID: employeeId,
+                    contactInformation: contactInfo,
+                    department: department,
+                    position: position,
+                }),
+            })
+                .then((response) => response.json())
+                .then((data) => {
+                    if (data.success) {
+                        alert("Employee details updated successfully!");
+
+                        // Update the View Employee Modal with the new values
+                        document.getElementById("viewContactInfo").innerText = "Contact Information: " + contactInfo;
+                        document.getElementById("viewDepartment").innerText = "Department: " + department;
+                        document.getElementById("viewPosition").innerText = "Position: " + position;
+
+                        const employeeRow = document.querySelector(`.view-employee-icon[data-id='${employeeId}']`).closest("tr");
+                        if (employeeRow) {
+                            employeeRow.cells[3].innerText = position;           // Update position cell
+                            employeeRow.cells[4].innerText = contactInfo;       // Update contact information cell
+                        }
+
+                        // Close the Edit Modal and show the View Modal
+                        document.getElementById("editEmployeeModal").style.display = "none";
+                        document.getElementById("viewEmployeeModal").style.display = "block";
+                    } else {
+                        alert(data.message || "Failed to update employee details.");
+                    }
+                })
+                .catch((error) => {
+                    console.error("Error updating employee details:", error);
+                });
         });
 
         // Sorting the incoming leave requests
@@ -977,6 +1177,75 @@
             var leaveOverviewModal = document.getElementById('leaveOverviewModal');
             leaveOverviewModal.style.display = 'block';
         });
+
+        // Generate Payslip
+        var generate_btn = document.getElementById("add_payslip");
+
+        generate_btn.onclick = function() {
+            generate_payslip_modal.style.display = 'block';
+        }
+
+        // View Payslip Details
+        var view_payslip_icons = document.querySelectorAll('.view-payslip-icon');
+        view_payslip_icons.forEach(function(icon) {
+            icon.addEventListener('click', function() {
+                var payslip_id = icon.getAttribute('data-payslip-id');
+                // Fetch payslip data based on payslip_id (this is just a placeholder, you need to fetch the actual data)
+                document.getElementById('viewPayslipID').innerText = "Payslip ID: 1"; // Replace with actual data
+                document.getElementById('viewPayDate').innerText = "Pay Date: 01/15/2021"; // Replace with actual data
+                document.getElementById('viewPayPeriod').innerText = "Pay Period: 01/01/2021 - 01/15/2021"; // Replace with actual data
+                document.getElementById('PayslipOverviewModal').style.display = 'block';
+            });
+        });
+
+        // Filter Payroll Table
+        // function filterPayrollTable() {
+        //     var selectedDepartment = document.getElementById('department').value;
+        //     var selectedPayPeriod = document.getElementById('payPeriod').value;
+
+        //     var rows = document.querySelectorAll('#payrollTableBody tr');
+        //     var filteredRows = [];
+
+        //     rows.forEach(function(row) {
+        //         var rowDepartment = row.cells[4].innerText; // Assuming department is in the 5th column
+        //         var rowPayPeriod = row.cells[3].innerText; // Assuming pay period is in the 4th column
+
+        //         var showRow = true;
+
+        //         if (selectedDepartment && rowDepartment !== selectedDepartment) {
+        //             showRow = false;
+        //         }
+        //         if (selectedPayPeriod && !rowPayPeriod.includes(selectedPayPeriod)) {
+        //             showRow = false;
+        //         }
+
+        //         if (showRow) {
+        //             row.style.display = '';
+        //             filteredRows.push(row.cloneNode(true));
+        //         } else {
+        //             row.style.display = 'none';
+        //         }
+        //     });
+
+        //     return filteredRows;
+        // }
+
+        // document.getElementById('generatePayrollReport').addEventListener('click', function() {
+        //     var filteredRows = filterPayrollTable();
+
+        //     var modalTableBody = document.getElementById('payrollTableBody');
+        //     modalTableBody.innerHTML = ''; // Clear existing rows
+        //     filteredRows.forEach(function(row) {
+        //         modalTableBody.appendChild(row);
+        //     });
+
+        //     // Set the filtered values in the modal
+        //     document.getElementById('modalPayrollDepartment').innerText = "Department: " + document.getElementById('department').value || 'All Departments';
+        //     document.getElementById('modalPayPeriod').innerText = "Pay Period: " + document.getElementById('payPeriod').value || 'N/A';
+
+        //     var payrollReportModal = document.getElementById('payslipReportModal');
+        //     payrollReportModal.style.display = 'block';
+        // });
 
         // Add active class to the first navigation
         document.getElementById('leave_nav').addEventListener('click', function() {
