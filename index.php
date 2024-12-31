@@ -107,7 +107,40 @@
         header("Location: index.php");
         exit();
     }
-    
+
+    try {
+        $sql = "SELECT
+                    lr.leaveID,
+                    lr.employeeID, 
+                    CONCAT(e.firstName, ' ', e.lastName) AS employeeName, 
+                    lr.startDate, 
+                    lr.endDate, 
+                    lr.leaveType
+                FROM leaveRequest lr
+                JOIN employee e ON lr.employeeID = e.employeeID
+                WHERE lr.leaveStatus = 'Pending' AND lr.startDate > CURDATE()";
+
+        $stmt = $pdo->query($sql);
+        $incomingLeaves = $stmt->fetchAll(PDO::FETCH_ASSOC);
+    } catch (PDOException $e) {
+        echo "Error fetching leave requests: " . $e->getMessage();
+        exit;
+    }
+
+    if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['leaveID'], $_POST['leaveStatus'])) {
+        $leaveID = $_POST['leaveID'];
+        $leaveStatus = $_POST['leaveStatus'];
+
+        try {
+            $sql = "UPDATE leaveRequest SET leaveStatus = :leaveStatus WHERE leaveID = :leaveID";
+            $stmt = $pdo->prepare($sql);
+            $stmt->execute(['leaveStatus' => $leaveStatus, 'leaveID' => $leaveID]);
+            echo json_encode(['success' => true]);
+        } catch (PDOException $e) {
+            echo json_encode(['success' => false, 'message' => $e->getMessage()]);
+        }
+        exit;
+    }    
 ?>
 <!DOCTYPE html>
 <html lang="en">
@@ -563,16 +596,25 @@
                                 <th>STATUS</th>
                             </tr>
                         </thead>
-                        <tbody id="leaveOverviewTableBody">
-                            <tr>
-                                <td>1</td>
-                                <td>1</td>
-                                <td>John Doe</td>
-                                <td>01/06/2021</td>
-                                <td>01/10/2021</td>
-                                <td>Vacation</td>
-                                <td>Pending</td>
-                            </tr>
+                        <tbody id="leaveTableBody">
+                            <?php
+                            $sql = "SELECT lr.leaveID, lr.employeeID, lr.startDate, lr.endDate, lr.leaveType, lr.leaveStatus, e.firstName, e.lastName 
+                                    FROM leaverequest lr 
+                                    JOIN employee e ON lr.employeeID = e.employeeID";
+                            $stmt = $pdo->query($sql);
+                            $leaveRequests = $stmt->fetchAll();
+
+                            foreach ($leaveRequests as $request): ?>
+                                <tr data-leave-id="<?= htmlspecialchars($request['leaveID']); ?>">
+                                    <td><?= htmlspecialchars($request['leaveID']); ?></td>
+                                    <td><?= htmlspecialchars($request['employeeID']); ?></td>
+                                    <td><?= htmlspecialchars($request['firstName'] . ' ' . $request['lastName']); ?></td>
+                                    <td><?= htmlspecialchars($request['startDate']); ?></td>
+                                    <td><?= htmlspecialchars($request['endDate']); ?></td>
+                                    <td><?= htmlspecialchars($request['leaveType']); ?></td>
+                                    <td><?= htmlspecialchars($request['leaveStatus']); ?></td>
+                                </tr>
+                            <?php endforeach; ?>
                         </tbody>
                     </table>
                 </div>
@@ -756,8 +798,8 @@
             <p id="viewEndDate"><b>End Date</b></p>
             <p id="viewLeaveType"><b>Kind of Leave</b></p>
             <div id="reqButtons">
-                <button id="approve-leave" class="submit">Approve</button>
-                <button id="reject-leave" class="submit">Reject</button>
+                <button id="approve-leave" class="submit" data-leave-id="">Approve</button>
+                <button id="reject-leave" class="submit" data-leave-id="">Reject</button>
             </div>
         </div>
     </div>
@@ -1079,10 +1121,13 @@
             sortAscending = !sortAscending; 
         });
 
-        // Function to add a leave request to the incoming leaves list
-        function addLeaveRequest(employeeName, startDate, endDate, leaveType) {
+        const incomingLeaves = <?php echo json_encode($incomingLeaves); ?>;
+
+        // Function to add leave requests dynamically
+        function addLeaveRequest(leaveID, employeeName, startDate, endDate, leaveType) {
             var leaveRequestDiv = document.createElement("div");
             leaveRequestDiv.className = "leave-request";
+            leaveRequestDiv.setAttribute("data-leave-id", leaveID);
             leaveRequestDiv.innerHTML = `
                 <p><b>Employee Name:</b> ${employeeName}</p>
                 <p class="start-date"><b>Start Date:</b> ${startDate}</p>
@@ -1094,30 +1139,71 @@
                 document.getElementById("viewStartDate").innerText = "Start Date: " + startDate;
                 document.getElementById("viewEndDate").innerText = "End Date: " + endDate;
                 document.getElementById("viewLeaveType").innerText = "Kind of Leave: " + leaveType;
+                document.getElementById("approve-leave").setAttribute("data-leave-id", leaveID);
+                document.getElementById("reject-leave").setAttribute("data-leave-id", leaveID);
                 leave_request_modal.style.display = "block";
             };
             document.getElementById("incoming-leaves-list").appendChild(leaveRequestDiv);
         }
 
-        // Example usage
-        addLeaveRequest("John Doe", "2021-03-06", "2021-03-10", "Vacation Leave");
-        addLeaveRequest("Jane Smith", "2021-02-06", "2021-02-10", "Sick Leave");
-        addLeaveRequest("Alice Johnson", "2024-12-30", "2025-01-03", "Vacation Leave");
+        // Populate leave requests
+        incomingLeaves.forEach(leave => {
+            addLeaveRequest(leave.leaveID, leave.employeeName, leave.startDate, leave.endDate, leave.leaveType);
+        });
 
-        var approve_leave = document.getElementById("approve-leave");
-        var reject_leave = document.getElementById("reject-leave");
+        function updateLeaveStatus(leaveID, leaveStatus) {
+            const formData = new FormData();
+            formData.append("leaveID", leaveID);
+            formData.append("leaveStatus", leaveStatus);
 
-        // Add function to approve leave request
-        approve_leave.onclick = function() {
-            alert("Leave request approved!");
-            leave_request_modal.style.display = "none";
+            fetch("index.php", {
+                method: "POST",
+                body: formData,
+            })
+                .then((response) => response.json())
+                .then((data) => {
+                    if (data.success) {
+                        // Remove leave request from the "incoming-leaves-list"
+                        const leaveRequestDiv = document.querySelector(`.leave-request[data-leave-id="${leaveID}"]`);
+                        if (leaveRequestDiv) {
+                            leaveRequestDiv.remove();
+                        }
+
+                        // Update the leave status in the leave-table
+                        const leaveTableRow = document.querySelector(`tr[data-leave-id="${leaveID}"] td:last-child`);
+                        if (leaveTableRow) {
+                            leaveTableRow.textContent = leaveStatus;
+                        }
+
+                        alert(`Leave request ${leaveStatus.toLowerCase()}!`);
+                    } else {
+                        alert(`Failed to update leave status: ${data.message}`);
+                    }
+                })
+                .catch((error) => {
+                    console.error("Error:", error);
+                    alert("An error occurred while updating leave status.");
+                });
         }
 
-        // Add function to reject leave request
-        reject_leave.onclick = function() {
-            alert("Leave request rejected!");
-            leave_request_modal.style.display = "none";
-        }
+        // Event listeners for Approve and Reject buttons
+        document.addEventListener("DOMContentLoaded", function () {
+            const approveButton = document.getElementById("approve-leave");
+            const rejectButton = document.getElementById("reject-leave");
+
+            approveButton.onclick = function () {
+                const leaveID = this.getAttribute("data-leave-id");
+                updateLeaveStatus(leaveID, "Approved");
+                document.getElementById("leaveRequestModal").style.display = "none";
+            };
+
+            rejectButton.onclick = function () {
+                const leaveID = this.getAttribute("data-leave-id");
+                updateLeaveStatus(leaveID, "Rejected");
+                document.getElementById("leaveRequestModal").style.display = "none";
+            };
+        });
+
 
         // Filters leave overview in main table and leave report
         function filterLeaveOverview() {
@@ -1125,7 +1211,7 @@
             var endDate = document.getElementById('endDate').value;
             var department = document.getElementById('departmentFilter').value;
 
-            var rows = document.querySelectorAll('#leaveOverviewTableBody tr');
+            var rows = document.querySelectorAll('#leaveTableBody tr');
             var filteredRows = [];
 
             rows.forEach(function(row) {
