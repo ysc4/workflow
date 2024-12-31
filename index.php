@@ -1,114 +1,3 @@
-<?php
-	$host = ''; // Hostname or IP address
-	$db = 'u415861906_infosec2222'; // Database name
-	$user = 'root'; // MySQL username
-	$port = "3307";
-	$pass = ''; // MySQL password
-	$charset = 'utf8mb4'; // Character set (optional but recommended)
-
-	try {
-		// Set DSN (Data Source Name)
-		$dsn = "mysql:host=$host;port=$port;dbname=$db;charset=$charset";
-		
-		// Options for PDO
-		$options = [
-			PDO::ATTR_ERRMODE            => PDO::ERRMODE_EXCEPTION, // Enables exceptions for errors
-			PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC,       // Fetches results as associative arrays
-			PDO::ATTR_EMULATE_PREPARES   => false,                  // Disables emulated prepared statements
-		];
-		
-		// Create a PDO instance
-		$pdo = new PDO($dsn, $user, $pass, $options);
-		
-	} catch (PDOException $e) {
-		// Handle connection errors
-		echo "Connection failed: " . $e->getMessage();
-	}
-
-    if (isset($_GET['fetchEmployeeData']) && isset($_GET['employeeID'])) {
-        header('Content-Type: application/json');
-        $employeeID = $_GET['employeeID'];
-    
-        try {
-            // Fetch employee details
-            $employeeSql = "SELECT firstName, lastName, contactInformation, department, position
-                            FROM employee WHERE employeeID = ?";
-            $stmt = $pdo->prepare($employeeSql);
-            $stmt->execute([$employeeID]);
-            $employeeDetails = $stmt->fetch(PDO::FETCH_ASSOC);
-    
-            // Fetch leave history
-            $leaveSql = "SELECT leaveType, startDate, endDate, DATEDIFF(startDate, endDate) + 1 AS days
-                         FROM leaverequest WHERE employeeID = ?";
-            $stmt = $pdo->prepare($leaveSql);
-            $stmt->execute([$employeeID]);
-            $leaveHistory = $stmt->fetchAll(PDO::FETCH_ASSOC);
-    
-            // Fetch payment history
-            $paymentSql = "SELECT paymentDate, netPay 
-                           FROM payroll WHERE employeeID = ?";
-            $stmt = $pdo->prepare($paymentSql);
-            $stmt->execute([$employeeID]);
-            $paymentHistory = $stmt->fetchAll(PDO::FETCH_ASSOC);
-    
-            if ($employeeDetails) {
-                echo json_encode([
-                    "success" => true,
-                    "employeeDetails" => $employeeDetails,
-                    "leaveHistory" => $leaveHistory,
-                    "paymentHistory" => $paymentHistory
-                ]);
-            } else {
-                echo json_encode(["success" => false, "message" => "Employee not found."]);
-            }
-        } catch (PDOException $e) {
-            echo json_encode(["success" => false, "message" => "Database error: " . $e->getMessage()]);
-        }
-        exit;
-    }
-
-    if (isset($_GET['editEmployee'])) {
-        header('Content-Type: application/json');
-        $input = json_decode(file_get_contents("php://input"), true);
-    
-        $employeeID = $input['employeeID'];
-        $contactInfo = $input['contactInformation'];
-        $department = $input['department'];
-        $position = $input['position'];
-    
-        try {
-            $sql = "UPDATE employee 
-                    SET contactInformation = ?, department = ?, position = ?
-                    WHERE employeeID = ?";
-            $stmt = $pdo->prepare($sql);
-            $stmt->execute([$contactInfo, $department, $position, $employeeID]);
-    
-            echo json_encode(["success" => true]);
-        } catch (PDOException $e) {
-            echo json_encode(["success" => false, "message" => "Database error: " . $e->getMessage()]);
-        }
-        exit;
-    }
-    
-
-    if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['lastName'])) {
-        $ln = $_POST['lastName'];
-        $fn = $_POST['firstName'];
-        $ci = $_POST['contactInformation'];
-        $dp = $_POST['department'];
-        $p = $_POST['position'];
-    
-        // Insert into the database
-        $sql = "INSERT INTO employee (lastName, firstName, department, contactInformation, position, leaveBalance) VALUES (:ln, :fn, :dp, :ci, :p, 10)";
-        $stmt = $pdo->prepare($sql);
-        $stmt->execute(['ln' => $ln, 'fn' => $fn, 'ci' => $ci, 'dp' => $dp, 'p' => $p]);
-    
-        // Redirect to the same page to prevent resubmission
-        header("Location: index.php");
-        exit();
-    }
-    
-?>
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -469,9 +358,9 @@
             <div id="left">
                 <h1>Employees Overview</h1>
                 <select id="department">
-                    <option value="IT Department">IT Department</option>
-                    <option value="HR Department">HR Department</option>
-                    <option value="Finance Department">Finance Department</option>
+                    <option value="it">IT Department</option>
+                    <option value="hr">HR Department</option>
+                    <option value="finance">Finance Department</option>
                 </select>
             </div>
             <div id="right">
@@ -493,22 +382,13 @@
                 </thead>
                 <tbody>
                     <tr>
-                        <?php
-                            $sql = "SELECT * FROM employee";
-                            $stmt = $pdo->query($sql);
-                            $result = $stmt->fetchAll();
-
-                            foreach ($result as $row): ?>
-                                <tr>
-                                    <td><?php echo htmlspecialchars($row['employeeID']); ?></td>
-                                    <td><?php echo htmlspecialchars($row['firstName']); ?></td>
-                                    <td><?php echo htmlspecialchars($row['lastName']); ?></td>
-                                    <td><?php echo htmlspecialchars($row['position']); ?></td>
-                                    <td><?php echo htmlspecialchars($row['contactInformation']); ?></td>
-                                    <td>Present</td>
-                                    <td id="view-icon-cell"><i class="fa-solid fa-eye view-employee-icon" data-id="<?php echo $row['employeeID']; ?>" style="cursor: pointer;"></i></td>
-                                </tr>
-                        <?php endforeach; ?>
+                        <td>1</td>
+                        <td>Doe</td>
+                        <td>John</td>
+                        <td>Web Developer</td>
+                        <td>+09123456789</td>
+                        <td>Active</td>
+                        <td id="view-icon-cell"><i class="fa-solid fa-eye view-employee-icon" data-id="1" style="cursor: pointer;"></i></td>
                     </tr>
                 </tbody>
             </table>
@@ -642,18 +522,18 @@
             <span class="close">&times;</span>
             <h2>Add Employee</h2>
             <hr>
-            <form id="addEmployeeForm" method = "POST">
+            <form id="addEmployeeForm">
                 <label for="lastName">Last Name:</label>
                 <input type="text" id="lastName" name="lastName"><br>
                 <label for="firstName">First Name:</label>
                 <input type="text" id="firstName" name="firstName"><br>
                 <label for="contactInfo">Contact Information:</label>
-                <input type="text" id="contactInfo" name="contactInformation"><br>
+                <input type="text" id="contactInfo" name="contactInfo"><br>
                 <label for="department">Department:</label>
-                <select id="department" name = "department">
-                    <option value="IT Department">IT Department</option>
-                    <option value="HR Department">HR Department</option>
-                    <option value="Finance Department">Finance Department</option>
+                <select id="department">
+                    <option value="it">IT Department</option>
+                    <option value="hr">HR Department</option>
+                    <option value="finance">Finance Department</option>
                 </select><br>
                 <label for="position">Position:</label>
                 <input type="text" id="position" name="position"><br>
@@ -681,15 +561,15 @@
                 <label for="editFirstName">First Name:</label>
                 <input type="text" id="editFirstName" name="firstName" readonly><br>
                 <label for="editContactInfo">Contact Information:</label>
-                <input type="text" id="editContactInfo" name="contactInformation" required><br>
+                <input type="text" id="editContactInfo" name="contactInfo" readonly><br>
                 <label for="editDepartment">Department:</label>
-                <select id="editDepartment" name="department" required>
-                    <option value="IT Department">IT Department</option>
-                    <option value="HR Department">HR Department</option>
-                    <option value="Finance Department">Finance Department</option>
+                <select id="editDepartment" name="department">
+                    <option value="it">IT Department</option>
+                    <option value="hr">HR Department</option>
+                    <option value="finance">Finance Department</option>
                 </select><br>
                 <label for="editPosition">Position:</label>
-                <input type="text" id="editPosition" name="position" required><br>
+                <input type="text" id="editPosition" name="position"><br>
                 <label for="editStatus">Status:</label>
                 <select id="editStatus" name="status">
                     <option value="active">Active</option>
@@ -718,7 +598,7 @@
             <p id="viewPosition"><b>Position</b></p>
             <p id="viewStatus"><b>Status</b></p>
             <h3>Leave History</h3>
-            <table id = "leaveHistoryTable">
+            <table>
                 <thead>
                     <tr>
                         <th>Leave Type</th>
@@ -728,10 +608,28 @@
                     </tr> 
                 </thead>
                 <tbody>
+                    <tr> 
+                        <td>Vacation</td>
+                        <td>01/06/2021</td>
+                        <td>01/10/2021</td>
+                        <td>5</td>
+                    </tr> 
+                    <tr> 
+                        <td>Vacation</td>
+                        <td>01/06/2021</td>
+                        <td>01/10/2021</td>
+                        <td>5</td>
+                    </tr> 
+                    <tr> 
+                        <td>Vacation</td>
+                        <td>01/06/2021</td>
+                        <td>01/10/2021</td>
+                        <td>5</td>
+                    </tr> 
                 </tbody>
             </table> 
             <h3>Payslip Overview</h3>
-            <table id = "paymentHistoryTable">
+            <table>
                 <thead>
                     <tr>
                         <th>Pay Period</th>
@@ -740,6 +638,11 @@
                     </tr>
                 </thead>
                 <tbody>
+                    <tr>
+                        <td>01/01/2021 - 01/15/2021</td>
+                        <td>01/15/2021</td>
+                        <td>$5000</td>
+                    </tr>           
                 </tbody>
             </table>
         </div>
@@ -903,63 +806,18 @@
         }
 
         document.addEventListener('DOMContentLoaded', function() {
-            document.querySelectorAll(".view-employee-icon").forEach(function (icon) {
-            icon.addEventListener("click", function (event) {
-                event.preventDefault();
-                var employeeId = this.getAttribute("data-id");
-
-                // Fetch combined employee data
-                fetch(`index.php?fetchEmployeeData=true&employeeID=${employeeId}`)
-                    .then((response) => response.json())
-                    .then((data) => {
-                        if (data.success) {
-                            // Populate employee details
-                            var details = data.employeeDetails;
-                            document.getElementById("viewLastName").innerText = "Last Name: " + details.lastName;
-                            document.getElementById("viewFirstName").innerText = "First Name: " + details.firstName;
-                            document.getElementById("viewContactInfo").innerText = "Contact Information: " + details.contactInformation;
-                            document.getElementById("viewDepartment").innerText = "Department: " + details.department;
-                            document.getElementById("viewPosition").innerText = "Position: " + details.position;
-                            document.getElementById("viewStatus").innerText = "Status: " + details.status;
-
-                            // Populate leave history
-                            var leaveTbody = document.querySelector("#leaveHistoryTable tbody");
-                            leaveTbody.innerHTML = ""; // Clear previous rows
-                            data.leaveHistory.forEach(function (leave) {
-                                var row = `
-                                    <tr>
-                                        <td>${leave.leaveType}</td>
-                                        <td>${leave.endDate}</td>
-                                        <td>${leave.startDate}</td>
-                                        <td>${leave.days}</td>
-                                    </tr>
-                                `;
-                                leaveTbody.innerHTML += row;
-                            });
-
-                            // Populate payment history
-                            var paymentTbody = document.querySelector("#paymentHistoryTable tbody");
-                            paymentTbody.innerHTML = ""; // Clear previous rows
-                            data.paymentHistory.forEach(function (payment) {
-                                var row = `
-                                    <tr>
-                                        <td>${payment.paymentPeriod}</td>
-                                        <td>${payment.paymentDate}</td>
-                                        <td>$${payment.netPay}</td>
-                                    </tr>
-                                `;
-                                paymentTbody.innerHTML += row;
-                            });
-                        } else {
-                            alert(data.message || "Could not fetch employee data.");
-                        }
-                    })
-                    .catch((error) => {
-                        console.error("Error fetching employee data:", error);
-                    });
-
-                    // Show the modal
-                    document.getElementById("viewEmployeeModal").style.display = "block";
+            var viewIcons = document.querySelectorAll('.view-employee-icon');
+            viewIcons.forEach(function(icon) {
+                icon.addEventListener('click', function() {
+                    var employeeId = this.getAttribute('data-id');
+                    // Fetch employee data based on employeeId (this is just a placeholder, you need to fetch the actual data)
+                    document.getElementById('viewLastName').innerText = "Last Name: Doe"; // Replace with actual data
+                    document.getElementById('viewFirstName').innerText = "First Name: John"; // Replace with actual data
+                    document.getElementById('viewPosition').innerText = "Position: Web Developer"; // Replace with actual data
+                    document.getElementById('viewContactInfo').innerText = "Contact Information: +09123456789"; // Replace with actual data
+                    document.getElementById('viewDepartment').innerText = "Department: IT Department"; // Replace with actual data
+                    document.getElementById('viewStatus').innerText = "Status: Active"; // Replace with actual data
+                    document.getElementById('viewEmployeeModal').style.display = 'block';
                 });
             });
 
@@ -971,85 +829,15 @@
             }
 
             edit_btn.onclick = function() {
-                // Get current employee details from the View Employee Modal
-                const firstName = document.getElementById("viewFirstName").innerText.split(": ")[1];
-                const lastName = document.getElementById("viewLastName").innerText.split(": ")[1];
-                const contactInfo = document.getElementById("viewContactInfo").innerText.split(": ")[1];
-                const department = document.getElementById("viewDepartment").innerText.split(": ")[1];
-                const position = document.getElementById("viewPosition").innerText.split(": ")[1];
-                const status = document.getElementById("viewStatus").innerText.split(": ")[1];
-
-                document.getElementById("editFirstName").value = firstName;
-                document.getElementById("editLastName").value = lastName;
-                document.getElementById("editContactInfo").value = contactInfo;
-                document.getElementById("editPosition").value = position;
-                document.getElementById("editStatus").value = status;
-                const departmentDropdown = document.getElementById("editDepartment");
-                departmentDropdown.innerHTML = ""; // Clear existing options
-                const departments = ["Finance Department", "IT Department", "HR Department"]; // Example departments
-                departments.forEach((dept) => {
-                    const option = document.createElement("option");
-                    option.value = dept;
-                    option.textContent = dept;
-                    if (dept === department) {
-                        option.selected = true; // Mark the current department as selected
-                    }
-                    departmentDropdown.appendChild(option);
-                });
-                departmentDropdown.value = department;
-
+                document.getElementById("editLastName").value = "Doe"; // Replace with actual data
+                document.getElementById("editFirstName").value = "John"; // Replace with actual data
+                document.getElementById("editContactInfo").value = "+09123456789"; // Replace with actual data
+                document.getElementById("editDepartment").value = "it"; // Replace with actual data
+                document.getElementById("editPosition").value = "Web Developer"; // Replace with actual data
+                document.getElementById("editStatus").value = "Active"; // Replace with actual data
                 edit_modal.style.display = "block";
                 view_modal.style.display = "none";
             }
-        });
-
-        document.getElementById("editEmployeeForm").addEventListener("submit", function (event) {
-            event.preventDefault(); // Prevent form submission from reloading the page
-
-            const employeeId = document.querySelector(".view-employee-icon").getAttribute("data-id");
-            const contactInfo = document.getElementById("editContactInfo").value;
-            const department = document.getElementById("editDepartment").value;
-            const position = document.getElementById("editPosition").value;
-
-            // Send the data to the server
-            fetch("index.php?editEmployee=true", {
-                method: "POST",
-                headers: {
-                    "Content-Type": "application/json",
-                },
-                body: JSON.stringify({
-                    employeeID: employeeId,
-                    contactInformation: contactInfo,
-                    department: department,
-                    position: position,
-                }),
-            })
-                .then((response) => response.json())
-                .then((data) => {
-                    if (data.success) {
-                        alert("Employee details updated successfully!");
-
-                        // Update the View Employee Modal with the new values
-                        document.getElementById("viewContactInfo").innerText = "Contact Information: " + contactInfo;
-                        document.getElementById("viewDepartment").innerText = "Department: " + department;
-                        document.getElementById("viewPosition").innerText = "Position: " + position;
-
-                        const employeeRow = document.querySelector(`.view-employee-icon[data-id='${employeeId}']`).closest("tr");
-                        if (employeeRow) {
-                            employeeRow.cells[3].innerText = position;           // Update position cell
-                            employeeRow.cells[4].innerText = contactInfo;       // Update contact information cell
-                        }
-
-                        // Close the Edit Modal and show the View Modal
-                        document.getElementById("editEmployeeModal").style.display = "none";
-                        document.getElementById("viewEmployeeModal").style.display = "block";
-                    } else {
-                        alert(data.message || "Failed to update employee details.");
-                    }
-                })
-                .catch((error) => {
-                    console.error("Error updating employee details:", error);
-                });
         });
 
         // Sorting the incoming leave requests
