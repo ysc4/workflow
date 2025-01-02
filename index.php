@@ -155,79 +155,115 @@
     $stmt = $pdo->query($sql);
     $payrollData = $stmt->fetchAll(PDO::FETCH_ASSOC);
     
-    if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-        $data = json_decode(file_get_contents('php://input'), true);
-        if ($data['action'] === 'fetchPayslipDetails' && isset($data['payrollID'])) {
-            $payslipID = $data['payrollID'];
-            $stmt = $pdo->prepare("SELECT * FROM payroll WHERE payrollID = ?");
-            $stmt->execute([$payslipID]);
-            $payslip = $stmt->fetch(PDO::FETCH_ASSOC);
-            if ($payslip) {
-                echo json_encode(['success' => true, 'payslip' => $payslip]);
-            } else {
-                echo json_encode(['success' => false]);
-            }
-            exit;
-        }
-    }
+   if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+    $data = json_decode(file_get_contents('php://input'), true);
 
-    if ($action === 'fetchEmployeeDetails' && isset($data['employeeID'])) {
-        $stmt = $pdo->prepare("SELECT firstName, lastName, position FROM employee WHERE employeeID = ?");
-        $stmt->execute([$data['employeeID']]);
-        $employee = $stmt->fetch(PDO::FETCH_ASSOC);
-    
-        if ($employee) {
-            echo json_encode(['success' => true, 'employee' => $employee]);
-        } else {
-            echo json_encode(['success' => false, 'message' => 'Employee not found.']);
-        }
-        exit;
-    }
-    
-    if ($action === 'fetchUnavailableDates' && isset($data['employeeID'])) {
-        $stmt = $pdo->prepare("SELECT startDate, endDate FROM payroll WHERE employeeID = ?");
-        $stmt->execute([$data['employeeID']]);
-        $dates = [];
-        while ($row = $stmt->fetch(PDO::FETCH_ASSOC)) {
-            $dates = array_merge($dates, range(strtotime($row['startDate']), strtotime($row['endDate'])));
-        }
-        echo json_encode(['success' => true, 'dates' => array_map(fn($date) => date('Y-m-d', $date), $dates)]);
-        exit;
-    }
+    if (isset($data['action'])) { //Check if action is set
+        switch ($data['action']) {
+            case 'fetchPayslipDetails':
+                if (isset($data['payrollID'])) {
+                    $stmt = $pdo->prepare("SELECT * FROM payroll WHERE payrollID = ?");
+                    $stmt->execute([$data['payrollID']]);
+                    $payslip = $stmt->fetch(PDO::FETCH_ASSOC);
+                    echo json_encode(['success' => $payslip !== false, 'payslip' => $payslip ?? null]); // Use null coalescing
+                } else {
+                    echo json_encode(['success' => false, 'message' => 'payrollID is missing']);
+                }
+                break;
 
-    if ($action === 'fetchHoursWorked' && isset($data['employeeID'], $data['startDate'], $data['endDate'])) {
-        $stmt = $pdo->prepare("SELECT SUM(hoursWorked) as totalHours FROM attendance WHERE employeeID = ? AND date BETWEEN ? AND ?");
-        $stmt->execute([$data['employeeID'], $data['startDate'], $data['endDate']]);
-        $result = $stmt->fetch(PDO::FETCH_ASSOC);
-    
-        if ($result && $result['totalHours']) {
-            echo json_encode(['success' => true, 'totalHours' => $result['totalHours']]);
-        } else {
-            echo json_encode(['success' => false, 'message' => 'No records found.']);
-        }
-        exit;
-    }
+            case 'fetchEmployeeDetails':
+                if (isset($data['employeeID'])) {
+                    $stmt = $pdo->prepare("SELECT firstName, lastName, position FROM employee WHERE employeeID = ?");
+                    $stmt->execute([$data['employeeID']]);
+                    $employee = $stmt->fetch(PDO::FETCH_ASSOC);
+                    echo json_encode(['success' => $employee !== false, 'employee' => $employee ?? null, 'message' => $employee ? null : 'Employee not found.']);
+                } else {
+                    echo json_encode(['success' => false, 'message' => 'employeeID is missing']);
+                }
+                break;
 
-    if ($action === 'generatePayslip' && isset($data['payslipData'])) {
-        $payslip = $data['payslipData'];
-        $stmt = $pdo->prepare("INSERT INTO payroll (employeeID, startDate, endDate, hoursWorked, hourlyRate, deductions, netPay) VALUES (?, ?, ?, ?, ?, ?, ?)");
-        $success = $stmt->execute([
-            $payslip['employeeID'], 
-            $payslip['startPayDate'], 
-            $payslip['endPayDate'], 
-            $payslip['hoursWorked'], 
-            $payslip['hourlyRate'], 
-            $payslip['deductions'], 
-            $payslip['netPay']
-        ]);
-    
-        if ($success) {
-            echo json_encode(['success' => true]);
-        } else {
-            echo json_encode(['success' => false, 'message' => 'Failed to insert payslip.']);
+            case 'fetchUnavailableDates':
+                if (isset($data['employeeID'])) {
+                    $stmt = $pdo->prepare("SELECT startDate, endDate FROM payroll WHERE employeeID = ?");
+                    $stmt->execute([$data['employeeID']]);
+                    $dates = [];
+                    while ($row = $stmt->fetch(PDO::FETCH_ASSOC)) {
+                        $dates = array_merge($dates, range(strtotime($row['startDate']), strtotime($row['endDate'])));
+                    }
+                    echo json_encode(['success' => true, 'dates' => array_map(fn($date) => date('Y-m-d', $date), $dates)]);
+                } else {
+                    echo json_encode(['success' => false, 'message' => 'employeeID is missing']);
+                }
+                break;
+
+            case 'fetchHoursWorked':
+                if (isset($data['employeeID'], $data['startDate'], $data['endDate'])) {
+                    $stmt = $pdo->prepare("SELECT SUM(hoursWorked) as totalHours FROM attendance WHERE employeeID = ? AND date BETWEEN ? AND ?");
+                    $stmt->execute([$data['employeeID'], $data['startDate'], $data['endDate']]);
+                    $result = $stmt->fetch(PDO::FETCH_ASSOC);
+                    echo json_encode(['success' => $result && $result['totalHours'] !== null, 'totalHours' => $result['totalHours'] ?? null, 'message' => $result && $result['totalHours'] !== null ? null : 'No records found.']);
+                } else {
+                    echo json_encode(['success' => false, 'message' => 'Missing employeeID, startDate, or endDate']);
+                }
+                break;
+
+                if ($data['$action'] === 'generatePayslip' && isset($data['payslipData'])) {
+                    $payslip = $data['payslipData'];
+                    echo json_encode($payslip);
+                    $stmt = $pdo->prepare("INSERT INTO payroll (employeeID, startDate, endDate, hoursWorked, ratePerHour, deductions, netPay) VALUES (?, ?, ?, ?, ?, ?, ?, ?)");
+                    $success = $stmt->execute([
+                        $payslip['employeeID'], 
+                        $payslip['startPayDate'], 
+                        $payslip['endPayDate'], 
+                        $payslip['hoursWorked'], 
+                        $payslip['ratePerHour'], 
+                        $payslip['deductions'], 
+                        $payslip['netPay']
+                    ]);
+                
+                    if ($success) {
+                        echo json_encode(['success' => true]);
+                    } else {
+                        echo json_encode(['success' => false, 'message' => 'Failed to insert payslip.']);
+                    }
+                    exit;
+                }
+            case 'generatePayslip':
+                if (isset($data['payslipData'])) {
+                    $payslip = $data['payslipData'];
+
+                    try {
+                        $stmt = $pdo->prepare("INSERT INTO payroll (employeeID, startDate, endDate, hoursWorked, ratePerHour, deductions, netPay) VALUES (?, ?, ?, ?, ?, ?, ?)");
+                        $success = $stmt->execute([
+                            $payslip['employeeID'],
+                            $payslip['startPayDate'],
+                            $payslip['endPayDate'],
+                            $payslip['hoursWorked'],
+                            $payslip['ratePerHour'],
+                            $payslip['deductions'],
+                            $payslip['netPay']
+                        ]);
+
+                        echo json_encode(['success' => $success, 'message' => $success ? 'Payslip generated successfully!' : 'Failed to insert payslip.']);
+
+                    } catch (PDOException $e) {
+                        echo json_encode(['success' => false, 'message' => 'Database error: ' . $e->getMessage()]);
+                    }
+
+                } else {
+                    echo json_encode(['success' => false, 'message' => 'payslipData is missing']);
+                }
+                break;
+
+            default:
+                echo json_encode(['success' => false, 'message' => 'Invalid action.']);
         }
+        exit; // Very important: Stop further execution
+    } else {
+        echo json_encode(['success' => false, 'message' => 'No action specified']);
         exit;
     }
+}
         
 ?>
 <!DOCTYPE html>
@@ -935,7 +971,7 @@
                 <label for="employeeName">Employee Name:</label>
                 <input type="text" id="inputEmployeeName" name="employeeName" readonly><br>
                 <label for="position">Position:</label>
-                <input type="text" id="position" name="position" readonly><br>
+                <input type="text" id="positionPayslip" name="positionPayslip" readonly><br>
                 <label for="startDate">Start Pay Date:</label>
                 <input type="date" id="startPayDate" name="startPayDate" required><br>
                 <label for="endDate">End Pay Date:</label>
@@ -943,9 +979,9 @@
                 <label for="hoursWorked">Hour/s Worked:</label>
                 <input type="text" id="inputHoursWorked" name="hoursWorked" readonly><br>
                 <label for="payPerHour" required>Pay per hour:</label>
-                <input type="text" id="inputPayPerDay" name="payPerDay"><br>
+                <input type="text" id="inputPayPerHour" name="payPerDay"><br>
                 <label for="deduction">Deduction/s:</label>
-                <input type="text" id="inputDeduction:" name="deduction"><br>
+                <input type="text" id="inputDeduction" name="deduction" readonly><br>
                 <label for="tax">Net Pay:</label>
                 <input type="text" id="calculateNetPay" name="netPay" readonly><br>
             </form>
@@ -1359,11 +1395,11 @@
         document.addEventListener('DOMContentLoaded', function () {
             const inputEmployeeID = document.getElementById('inputEmployeeID');
             const inputEmployeeName = document.getElementById('inputEmployeeName');
-            const position = document.getElementById('position');
+            const position = document.getElementById('positionPayslip');
             const startPayDate = document.getElementById('startPayDate');
             const endPayDate = document.getElementById('endPayDate');
             const inputHoursWorked = document.getElementById('inputHoursWorked');
-            const inputPayPerDay = document.getElementById('inputPayPerDay');
+            const inputPayPerHour = document.getElementById('inputPayPerHour');
             const inputDeduction = document.getElementById('inputDeduction');
             const calculateNetPay = document.getElementById('calculateNetPay');
             const generatePayslipButton = document.getElementById('generatePayslipButton');
@@ -1464,11 +1500,11 @@
             });
 
             // Calculate Gross Pay, Deductions, and Net Pay
-            inputPayPerDay.addEventListener('input', function () {
-                const hourlyRate = parseFloat(inputPayPerDay.value);
+            inputPayPerHour.addEventListener('input', function () {
+                const ratePerHour = parseFloat(inputPayPerHour.value);
                 const hoursWorked = parseFloat(inputHoursWorked.value);
-                if (!isNaN(hourlyRate) && !isNaN(hoursWorked)) {
-                    const grossPay = hourlyRate * hoursWorked;
+                if (!isNaN(ratePerHour) && !isNaN(hoursWorked)) {
+                    const grossPay = ratePerHour * hoursWorked;
                     const deduction = grossPay * 0.15; // 15% deductions
                     const netPay = grossPay - deduction;
 
@@ -1484,7 +1520,7 @@
                     startPayDate: startPayDate.value,
                     endPayDate: endPayDate.value,
                     hoursWorked: inputHoursWorked.value,
-                    hourlyRate: inputPayPerDay.value,
+                    ratePerHour: inputPayPerHour.value,
                     deductions: inputDeduction.value,
                     netPay: calculateNetPay.value
                 };
