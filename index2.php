@@ -163,18 +163,67 @@
         .leave-flex-container {
             display: flex;
             justify-content: space-between;
-            height: 92%;
+            height: 50%;
         }
         #remaining-leaves {
             width: 40%;
+            height: 80%;
+            overflow: auto;
+        }
+        #leave-request {
+            width: 60%;
+            height: 80%;
+            overflow: auto;
+        }
+        #leave-overview {
+            width: 90%;
             height: 50%;
             overflow: auto;
         }
-        #remaining-leaves h2 {
-            color: #2E5077;
-            font-weight: 1000;
-            margin: 5px 5px 10px;
+        #leave-overview-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
         }
+        select {
+            padding: 10px 20px; 
+            margin: 10px 10px 10px 20px;
+            background-color: #F6F4F0; 
+            color: #2E5077; 
+            border: 1px solid #2E5077;
+            border-radius: 15px; 
+            font-family: "Poppins", sans-serif;
+            font-style: normal;
+            font-size: 16px;
+        }
+        input[type="date"] {
+            padding: 10px 10px; 
+            margin: 10px;
+            background-color: #F6F4F0; 
+            color: #2E5077; 
+            border: 1px solid #2E5077; /* Added border */
+            border-radius: 15px; 
+            font-family: "Poppins", sans-serif;
+            font-style: normal;
+            font-size: 14px;
+        }
+        #leave-request-buttons {
+            text-align: center;
+            margin-top: 20px;
+        }
+        #leave-request-buttons button {
+            padding: 10px 20px;
+            font-size: 16px;
+            border: 1px solid #F6F4F0;
+            border-radius: 10px;
+            color: #F6F4F0;
+            background-color: #4DA1A9;
+        }
+        #leave-request-buttons button:hover {
+            background-color: #F6F4F0;
+            color: #4DA1A9;
+        }
+
     </style>
 </head>
 <body>
@@ -265,56 +314,45 @@
                 </table>
             </div>
 
-            <div class="container" id="leave-overview">
-                <div id="leave-title">
-                    <div id="leave-overview-header">
-                        <h2>Leave Overview</h2>
-                        <i class="fa-solid fa-download" id="generateOverview"></i>                
+            <div class="container" id="leave-request">
+                <h2>Request for Leave</h2>              
+                <form>
+                    <label for="leave-type">Leave Type:</label>
+                    <select id="leave-type" name="leave-type">
+                        <option value="vacation">Vacation</option>
+                        <option value="sick">Sick</option>
+                        <option value="maternity">Maternity</option>
+                    </select><br>
+                    <label for="start-date">Start Date:</label>
+                    <input type="date" id="start-date" name="start-date"><br>
+                    <label for="end-date">End Date:</label>
+                    <input type="date" id="end-date" name="end-date"><br><br>
+                    <div class="button-container" id="leave-request-buttons">
+                        <button type="submit">Submit</button>
                     </div>
-                    <div id="filter-options">
-                        <form id="filterForm">
-                            <label for="startDate">From:</label>
-                            <input type="date" id="startDate" name="startDate">
-                            <label for="endDate">&emsp; To:</label>
-                            <input type="date" id="endDate" name="endDate">
-                            <label for="departmentFilter">&emsp; Department:</label>
-                            <select id="departmentFilter" name="department">
-                                <option value="">All Departments</option>
-                                <option value="it">IT Department</option>
-                                <option value="hr">HR Department</option>
-                                <option value="finance">Finance Department</option>
-                            </select>
-                            <i class="fa-solid fa-sync" id="filterRefreshIcon" style="cursor: pointer; margin-left: 10px;"></i>
-                        </form>
-                    </div>
-                </div>
-                <div id="leave-table">
-                    <table>
-                        <thead>
-                            <tr>
-                                <th>LEAVE ID</th>
-                                <th>EMPLOYEE ID</th>
-                                <th>EMPLOYEE NAME</th>
-                                <th>START DATE</th>
-                                <th>END DATE</th>
-                                <th>KIND OF LEAVE</th>
-                                <th>STATUS</th>
-                            </tr>
-                        </thead>
-                        <tbody id="leaveOverviewTableBody">
-                            <tr>
-                                <td>1</td>
-                                <td>1</td>
-                                <td>John Doe</td>
-                                <td>01/06/2021</td>
-                                <td>01/10/2021</td>
-                                <td>Vacation</td>
-                                <td>Pending</td>
-                            </tr>
-                        </tbody>
-                    </table>
-                </div>
+                </form>
             </div>
+        </div>
+        <div class="container" id="leave-history">
+            <h2>Leave History</h2>
+            <table>
+                <thead>
+                    <th>START DATE</th>
+                    <th>END DATE</th>
+                    <th>LEAVE TYPE</th>
+                    <th>DURATION</th>
+                    <th>STATUS</th>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td>01/09/2025</td>
+                        <td>01/10/2025</td>
+                        <td>Vacation</td>
+                        <td>1 day</td>
+                        <td>Approved</td>
+                    </tr>
+                </tbody>
+            </table>
         </div>
     </div>
 
