@@ -223,7 +223,117 @@
             background-color: #F6F4F0;
             color: #4DA1A9;
         }
+        /* Payroll Section */
+        .payroll-section {
+            background-color: #F6F4F0;  
+            border-radius: 10px;
+            font-family: "Poppins", sans-serif;
+        }
 
+        .payroll-section h1 {
+            color: #2E5077;
+            margin-bottom: 10px;
+        }
+
+        .payroll-section .highlighted {
+            color: #4DA1A9;
+            font-weight: bold;
+        }
+
+        .breakdown {
+            margin-top: 15px;
+            background-color: #F6F4F0;
+            padding: 20px;
+            border-radius: 10px;
+        }
+
+        .breakdown .section-header {
+            background-color: #2E5077;
+            color: #F6F4F0;
+            padding: 10px;
+            border-radius: 5px;
+            font-size: 18px;
+            margin-bottom: 15px;
+        }
+
+        .breakdown table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 14px;
+            border: 1px solid black; /* Outer border */
+        }
+
+        .breakdown table td {
+            padding: 8px 10px;
+            vertical-align: top;
+            border: none; /* Removed inner border */
+        }
+
+        .breakdown .right-align {
+            text-align: right;
+        }
+
+        .breakdown .highlighted {
+            color: #4DA1A9;
+            font-weight: bold;
+        }
+
+        .breakdown .total td {
+            background-color: #4DA1A9;
+            color: #FFFFFF;
+            font-weight: bold;
+            font-size: 18px;
+            padding: 10px;
+        }
+
+        /* Payment History Section */
+        .payment-history-section {
+            margin-top: 40px;
+            background-color: #F6F4F0;
+            padding: 20px;
+            border-radius: 10px;
+        }
+
+        .payment-history-section h3 {
+            font-size: 22px;
+            color: #2E5077;
+            margin-bottom: 15px;
+        }
+
+        .payment-history-section table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+
+        .payment-history-section table th,
+        .payment-history-section table td {
+            padding: 10px;
+            text-align: left;
+        }
+
+        .payment-history-section table th {
+            background-color: #2E5077;
+            color: #F6F4F0;
+            font-size: 16px;
+        }
+
+        .payment-history-section table td {
+            font-size: 14px;
+            border-bottom: 1px solid #D1D5DB;
+        }
+
+        .payment-history-section table td button {
+            background-color: #2E5077;
+            color: #FFFFFF;
+            padding: 8px 12px;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+        }
+
+        .payment-history-section table td button:hover {
+            background-color: #4DA1A9;
+        }
     </style>
 </head>
 <body>
@@ -358,59 +468,67 @@
 
     <!-- Payroll Container -->
     <div class="main hidden" id="payroll_container">
-        <div class="header-container">
-            <div id="left">
-                <h1>Payroll Overview</h1>
-                <select id="department">
-                    <option value="it">IT Department</option>
-                    <option value="hr">HR Department</option>
-                    <option value="finance">Finance Department</option>
-                </select>
-                <select id="payPeriod">
-                    <option value="jan">January</option>
-                    <option value="feb">February</option>
-                    <option value="mar">March</option>
-                    <option value="apr">April</option>
-                    <option value="may">May</option>
-                    <option value="june">June</option>
-                    <option value="july">July</option>
-                    <option value="aug">August</option>
-                    <option value="sep">September</option>
-                    <option value="oct">October</option>
-                    <option value="nov">November</option>
-                    <option value="dec">December</option>
-                </select>
-            </div>
-            <div id="right">
-                <i class="fa-solid fa-download" id="generate-payroll"></i>  
-                <i class="fa-solid fa-plus" id="add_payslip"></i>            
-            </div>
-        </div>
-        <div class="container" id="payroll-table">
+    <!-- Payroll Overview Section -->
+    <div class="payroll-section">
+        <h1>Payroll Overview</h1>
+        <h3 class="upcoming-payroll">
+            Upcoming Payroll Release: <span class="highlighted">December 29, 2024</span>
+        </h3>
+        <div class="breakdown">
+            <h3 class="section-header">EXPECTED BREAKDOWN OF PAYSLIP</h3>
             <table>
-                <thead>
-                    <tr>
-                        <th>EMPLOYEE ID</th>
-                        <th>LAST NAME</th>
-                        <th>FIRST NAME</th>
-                        <th>DATE RECEIVED</th>
-                        <th>STATUS</th>
-                        <th>VIEW</th>
-                    </tr>
-                </thead>
-                <tbody id="payrollOverviewTable">
-                    <tr>
-                        <td>3</td>
-                        <td>Johnson</td>
-                        <td>Emily</td>
-                        <td>12/09/2020</td>
-                        <td>Received</td>
-                        <td id="view-icon-cell"><i class="fa-solid fa-eye view-payslip-icon" data-id="1" style="cursor: pointer;"></i></td>
-                    </tr>
-                </tbody>
+                <tr>
+                    <td>Hours worked</td>
+                    <td class="right-align">24 hrs</td>
+                </tr>
+                <tr>
+                    <td>Pay per hour</td>
+                    <td class="right-align">P300.00/hr</td>
+                </tr>
+                <tr>
+                    <td>Deductions:</td>
+                    <td>- Taxes (10%)</td>
+                </tr>
+                <tr>
+                    <td></td>
+                    <td class="right-align highlighted">P30.00</td>
+                </tr>
+                <tr class="total">
+                    <td>TOTAL AMOUNT:</td>
+                    <td class="right-align total-amount">P770.00</td>
+                </tr>
             </table>
         </div>
     </div>
+
+    <!-- Payment History Section -->
+    <div class="payment-history-section">
+        <h3>Payment History</h3>
+        <table>
+            <thead>
+                <tr>
+                    <th>TRANSACTION ID</th>
+                    <th>DATE</th>
+                    <th>TIME</th>
+                    <th>TOTAL AMOUNT</th>
+                    <th>STATUS</th>
+                    <th>VIEW</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr>
+                    <td>#123456</td>
+                    <td>November 25, 2024</td>
+                    <td>8:09:30</td>
+                    <td>P800</td>
+                    <td>Completed</td>
+                    <td><button>View</button></td>
+                </tr>
+                <!-- Add more rows as needed -->
+            </tbody>
+        </table>
+    </div>
+</div>
 
     <script>
         // JavaScript to update the time
@@ -468,3 +586,4 @@
 
 
 </body>
+</html>
