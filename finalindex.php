@@ -466,53 +466,6 @@
             font-weight: 1000;
             margin: 5px 5px 10px;
         }
-                .login-container {
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            height: 90vh;
-        }
-        .login-form {
-            width: 500px;
-            height: 400px;
-            display: flex;
-            flex-direction: column;
-            justify-content: center;
-            align-items: center;
-            padding: 10px;
-            background-color: #4DA1A9;
-            color: #F6F4F0;
-            border-radius: 20px;
-            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1); /* Added shadow */
-        }
-        .login-form h2 {
-            margin: 0;
-            font-size: 50px;
-            font-weight: bold;
-            margin-bottom: 20px;
-        }
-        .login-form label {
-            margin: 10px 0;
-            font-size: 20px;
-        }
-        .login-form input {
-            width: 100%;
-            padding: 10px;
-            margin: 10px auto;
-            font-size: 16px;
-            border: 1px solid #F6F4F0;
-            border-radius: 15px;
-        }
-        .login-form button {
-            padding: 10px 20px;
-            font-size: 16px;
-            border: 1px solid #F6F4F0;
-            border-radius: 15px;
-            color: #4DA1A9;
-            background-color: #F6F4F0;
-            margin-top: 20px;
-            cursor: pointer;
-        }
     </style>
 </head>
 <body>
@@ -521,24 +474,7 @@
         <i class="fa-solid fa-user" id="userIcon" style="font-size: 30px; color: #4DA1A9;" align="right"></i>
     </div>
 
-    <div class="bg" id="login">
-        <div class="login-container">
-            <div class="login-form">
-                <h2>Login</h2>
-                <form>
-                    <label for="username">Username:</label>
-                    <input type="text" id="username" name="username"><br>
-                    <label for="password">Password:</label>
-                    <input type="password" id="password" name="password"><br>
-                    <div class="button-container">
-                        <button type="submit" class="submit">Login</button>
-                    </div>
-                </form>
-            </div>
-        </div>
-    </div>
-
-    <div class="bg hidden" id="hr_main">
+    <div class="bg" id="hr_main">
         <nav>
             <div class="navigation active" id="employee_nav">Employee</div>
             <div class="navigation" id="leave_nav">Leave</div>
@@ -1508,31 +1444,17 @@
             document.getElementById('user-leave_nav').classList.remove('active');
         });
 
-        document.addEventListener('DOMContentLoaded', function() {
-            const loginButton = document.querySelector('.login-form button');
-            const userIcon = document.getElementById('userIcon');
-            const loginContainer = document.getElementById('login');
-            const hrMainContainer = document.getElementById('hr_main');
-            const employeeMainContainer = document.getElementById('employee_main');
+        document.getElementById('userIcon').addEventListener('click', function() {
+            var hrMain = document.getElementById('hr_main');
+            var employeeMain = document.getElementById('employee_main');
 
-            loginButton.addEventListener('click', function(event) {
-                event.preventDefault();
-                if (document.getElementById('username').value === 'hr' && document.getElementById('password').value === 'hr') {
-                    loginContainer.classList.add('hidden');
-                    hrMainContainer.classList.remove('hidden');
-                } else if (document.getElementById('username').value === 'employee' && document.getElementById('password').value === 'employee') {
-                    loginContainer.classList.add('hidden');
-                    employeeMainContainer.classList.remove('hidden');
-                } else {
-                    alert('Invalid username or password');
-                }
-            });
-
-            userIcon.addEventListener('click', function() {
-                hrMainContainer.classList.add('hidden');
-                employeeMainContainer.classList.add('hidden');
-                loginContainer.classList.remove('hidden');
-            });
+            if (hrMain.classList.contains('hidden')) {
+                hrMain.classList.remove('hidden');
+                employeeMain.classList.add('hidden');
+            } else {
+                hrMain.classList.add('hidden');
+                employeeMain.classList.remove('hidden');
+            }
         });
 
     </script>
