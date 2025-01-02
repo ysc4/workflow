@@ -143,15 +143,15 @@
     }
     
     $sql = "
-    SELECT 
-        e.employeeID, e.lastName, e.firstName, 
-        p.payrollID, p.paymentDate, p.startDate, p.endDate, 
-        p.hoursWorked, p.ratePerHour, p.deductions, p.netPay
-    FROM 
-        payroll p
-    JOIN 
-        employee e ON e.employeeID = p.employeeID
-    ";
+        SELECT 
+            e.employeeID, e.lastName, e.firstName, 
+            p.payrollID, p.paymentDate, p.startDate, p.endDate, 
+            p.hoursWorked, p.ratePerHour, p.deductions, p.netPay
+        FROM 
+            payroll p
+        JOIN 
+            employee e ON e.employeeID = p.employeeID
+        ";
     $stmt = $pdo->query($sql);
     $payrollData = $stmt->fetchAll(PDO::FETCH_ASSOC);
     
@@ -170,6 +170,65 @@
             exit;
         }
     }
+
+    if ($action === 'fetchEmployeeDetails' && isset($data['employeeID'])) {
+        $stmt = $pdo->prepare("SELECT firstName, lastName, position FROM employee WHERE employeeID = ?");
+        $stmt->execute([$data['employeeID']]);
+        $employee = $stmt->fetch(PDO::FETCH_ASSOC);
+    
+        if ($employee) {
+            echo json_encode(['success' => true, 'employee' => $employee]);
+        } else {
+            echo json_encode(['success' => false, 'message' => 'Employee not found.']);
+        }
+        exit;
+    }
+    
+    if ($action === 'fetchUnavailableDates' && isset($data['employeeID'])) {
+        $stmt = $pdo->prepare("SELECT startDate, endDate FROM payroll WHERE employeeID = ?");
+        $stmt->execute([$data['employeeID']]);
+        $dates = [];
+        while ($row = $stmt->fetch(PDO::FETCH_ASSOC)) {
+            $dates = array_merge($dates, range(strtotime($row['startDate']), strtotime($row['endDate'])));
+        }
+        echo json_encode(['success' => true, 'dates' => array_map(fn($date) => date('Y-m-d', $date), $dates)]);
+        exit;
+    }
+
+    if ($action === 'fetchHoursWorked' && isset($data['employeeID'], $data['startDate'], $data['endDate'])) {
+        $stmt = $pdo->prepare("SELECT SUM(hoursWorked) as totalHours FROM attendance WHERE employeeID = ? AND date BETWEEN ? AND ?");
+        $stmt->execute([$data['employeeID'], $data['startDate'], $data['endDate']]);
+        $result = $stmt->fetch(PDO::FETCH_ASSOC);
+    
+        if ($result && $result['totalHours']) {
+            echo json_encode(['success' => true, 'totalHours' => $result['totalHours']]);
+        } else {
+            echo json_encode(['success' => false, 'message' => 'No records found.']);
+        }
+        exit;
+    }
+
+    if ($action === 'generatePayslip' && isset($data['payslipData'])) {
+        $payslip = $data['payslipData'];
+        $stmt = $pdo->prepare("INSERT INTO payroll (employeeID, startDate, endDate, hoursWorked, hourlyRate, deductions, netPay) VALUES (?, ?, ?, ?, ?, ?, ?)");
+        $success = $stmt->execute([
+            $payslip['employeeID'], 
+            $payslip['startPayDate'], 
+            $payslip['endPayDate'], 
+            $payslip['hoursWorked'], 
+            $payslip['hourlyRate'], 
+            $payslip['deductions'], 
+            $payslip['netPay']
+        ]);
+    
+        if ($success) {
+            echo json_encode(['success' => true]);
+        } else {
+            echo json_encode(['success' => false, 'message' => 'Failed to insert payslip.']);
+        }
+        exit;
+    }
+        
 ?>
 <!DOCTYPE html>
 <html lang="en">
@@ -871,19 +930,19 @@
             <h2>Generate Payslip</h2>
             <hr>
             <form>
-                <label for="employeeID">Employee ID:</label>
+                <label for="employeeID" required autofocus>Employee ID:</label>
                 <input type="text" id="inputEmployeeID" name="employeeID"><br>
                 <label for="employeeName">Employee Name:</label>
                 <input type="text" id="inputEmployeeName" name="employeeName" readonly><br>
                 <label for="position">Position:</label>
                 <input type="text" id="position" name="position" readonly><br>
                 <label for="startDate">Start Pay Date:</label>
-                <input type="date" id="startPayDate" name="startPayDate"><br>
+                <input type="date" id="startPayDate" name="startPayDate" required><br>
                 <label for="endDate">End Pay Date:</label>
-                <input type="date" id="endPayDate" name="endPayDate"><br>
+                <input type="date" id="endPayDate" name="endPayDate" required><br>
                 <label for="hoursWorked">Hour/s Worked:</label>
                 <input type="text" id="inputHoursWorked" name="hoursWorked" readonly><br>
-                <label for="payPerHour">Pay per hour:</label>
+                <label for="payPerHour" required>Pay per hour:</label>
                 <input type="text" id="inputPayPerDay" name="payPerDay"><br>
                 <label for="deduction">Deduction/s:</label>
                 <input type="text" id="inputDeduction:" name="deduction"><br>
@@ -1297,12 +1356,159 @@
             leaveOverviewModal.style.display = 'block';
         });
 
-        // Generate Payslip
-        var generate_btn = document.getElementById("add_payslip");
+        document.addEventListener('DOMContentLoaded', function () {
+            const inputEmployeeID = document.getElementById('inputEmployeeID');
+            const inputEmployeeName = document.getElementById('inputEmployeeName');
+            const position = document.getElementById('position');
+            const startPayDate = document.getElementById('startPayDate');
+            const endPayDate = document.getElementById('endPayDate');
+            const inputHoursWorked = document.getElementById('inputHoursWorked');
+            const inputPayPerDay = document.getElementById('inputPayPerDay');
+            const inputDeduction = document.getElementById('inputDeduction');
+            const calculateNetPay = document.getElementById('calculateNetPay');
+            const generatePayslipButton = document.getElementById('generatePayslipButton');
+            const generatePayslipModal = document.getElementById('generatePayslipModal');
+            const addPayslipButton = document.getElementById('add_payslip');
 
-        generate_btn.onclick = function() {
-            generate_payslip_modal.style.display = 'block';
-        }
+            // Show Generate Payslip Modal
+            addPayslipButton.onclick = function () {
+                generatePayslipModal.style.display = 'block';
+            };
+
+            // Close Modal Logic
+            document.querySelector('#generatePayslipModal .close').onclick = function () {
+                generatePayslipModal.style.display = 'none';
+            };
+
+            // Fetch Employee Details when Employee ID loses focus
+            inputEmployeeID.addEventListener('blur', function () {
+                const employeeID = inputEmployeeID.value.trim();
+                if (employeeID) {
+                    fetch('index.php', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ action: 'fetchEmployeeDetails', employeeID })
+                    })
+                    .then(response => response.json())
+                    .then(data => {
+                        if (data.success) {
+                            inputEmployeeName.value = `${data.employee.firstName} ${data.employee.lastName}`;
+                            position.value = data.employee.position;
+                        } else {
+                            alert('Employee not found!');
+                        }
+                    })
+                    .catch(error => console.error('Error fetching employee details:', error));
+                }
+            });
+
+            // Disable unavailable dates in the date picker
+            function disableUnavailableDates(employeeID) {
+                fetch('index.php', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ action: 'fetchUnavailableDates', employeeID })
+                })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        const unavailableDates = data.dates; // Array of dates
+                        startPayDate.addEventListener('input', function () {
+                            const startDate = new Date(startPayDate.value);
+                            const isUnavailable = unavailableDates.some(date => new Date(date) >= startDate);
+                            if (isUnavailable) {
+                                alert('The selected start date is already covered by a previous payslip.');
+                                startPayDate.value = '';
+                            }
+                        });
+
+                        endPayDate.addEventListener('input', function () {
+                            const endDate = new Date(endPayDate.value);
+                            const isUnavailable = unavailableDates.some(date => new Date(date) >= endDate);
+                            if (isUnavailable) {
+                                alert('The selected end date is already covered by a previous payslip.');
+                                endPayDate.value = '';
+                            }
+                        });
+                    }
+                })
+                .catch(error => console.error('Error fetching unavailable dates:', error));
+            }
+
+            // When valid dates are entered, calculate hours worked
+            function calculateHoursWorked(employeeID, startDate, endDate) {
+                fetch('index.php', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ action: 'fetchHoursWorked', employeeID, startDate, endDate })
+                })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        inputHoursWorked.value = data.totalHours;
+                    } else {
+                        inputHoursWorked.value = 0;
+                        alert('No attendance records found for the selected range.');
+                    }
+                })
+                .catch(error => console.error('Error fetching hours worked:', error));
+            }
+
+            [startPayDate, endPayDate].forEach(input => {
+                input.addEventListener('change', function () {
+                    const employeeID = inputEmployeeID.value.trim();
+                    if (employeeID && startPayDate.value && endPayDate.value) {
+                        calculateHoursWorked(employeeID, startPayDate.value, endPayDate.value);
+                    }
+                });
+            });
+
+            // Calculate Gross Pay, Deductions, and Net Pay
+            inputPayPerDay.addEventListener('input', function () {
+                const hourlyRate = parseFloat(inputPayPerDay.value);
+                const hoursWorked = parseFloat(inputHoursWorked.value);
+                if (!isNaN(hourlyRate) && !isNaN(hoursWorked)) {
+                    const grossPay = hourlyRate * hoursWorked;
+                    const deduction = grossPay * 0.15; // 15% deductions
+                    const netPay = grossPay - deduction;
+
+                    inputDeduction.value = deduction.toFixed(2);
+                    calculateNetPay.value = netPay.toFixed(2);
+                }
+            });
+
+            // Generate Payslip
+            generatePayslipButton.addEventListener('click', function () {
+                const payslipData = {
+                    employeeID: inputEmployeeID.value.trim(),
+                    startPayDate: startPayDate.value,
+                    endPayDate: endPayDate.value,
+                    hoursWorked: inputHoursWorked.value,
+                    hourlyRate: inputPayPerDay.value,
+                    deductions: inputDeduction.value,
+                    netPay: calculateNetPay.value
+                };
+
+                fetch('index.php', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ action: 'generatePayslip', payslipData })
+                })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        alert('Payslip generated successfully!');
+                        // Close modal and clear form
+                        generatePayslipModal.style.display = 'none';
+                        document.querySelector('#generatePayslipModal form').reset();
+                    } else {
+                        alert('Failed to generate payslip: ' + data.message);
+                    }
+                })
+                .catch(error => console.error('Error generating payslip:', error));
+            });
+        });
+
 
         // View Payslip Details
         var view_payslip_icons = document.querySelectorAll('.view-payslip-icon');
