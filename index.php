@@ -132,7 +132,7 @@
             height: 92%;
         }
         #incoming-leaves {
-            width: 460px;
+            width: 30%;
             height: 100%;
             overflow: auto;
         }
@@ -148,7 +148,7 @@
         }
 
         #leave-overview {
-            width: 910px;
+            width: 70%;
             height: 100%;
         }
         .leave {
