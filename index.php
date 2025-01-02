@@ -140,7 +140,36 @@
             echo json_encode(['success' => false, 'message' => $e->getMessage()]);
         }
         exit;
-    }    
+    }
+    
+    $sql = "
+    SELECT 
+        e.employeeID, e.lastName, e.firstName, 
+        p.payrollID, p.paymentDate, p.startDate, p.endDate, 
+        p.hoursWorked, p.ratePerHour, p.deductions, p.netPay
+    FROM 
+        payroll p
+    JOIN 
+        employee e ON e.employeeID = p.employeeID
+    ";
+    $stmt = $pdo->query($sql);
+    $payrollData = $stmt->fetchAll(PDO::FETCH_ASSOC);
+    
+    if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+        $data = json_decode(file_get_contents('php://input'), true);
+        if ($data['action'] === 'fetchPayslipDetails' && isset($data['payrollID'])) {
+            $payslipID = $data['payrollID'];
+            $stmt = $pdo->prepare("SELECT * FROM payroll WHERE payrollID = ?");
+            $stmt->execute([$payslipID]);
+            $payslip = $stmt->fetch(PDO::FETCH_ASSOC);
+            if ($payslip) {
+                echo json_encode(['success' => true, 'payslip' => $payslip]);
+            } else {
+                echo json_encode(['success' => false]);
+            }
+            exit;
+        }
+    }
 ?>
 <!DOCTYPE html>
 <html lang="en">
@@ -665,14 +694,18 @@
                     </tr>
                 </thead>
                 <tbody id="payrollOverviewTable">
-                    <tr>
-                        <td>3</td>
-                        <td>Johnson</td>
-                        <td>Emily</td>
-                        <td>12/09/2020</td>
-                        <td>Received</td>
-                        <td id="view-icon-cell"><i class="fa-solid fa-eye view-payslip-icon" data-id="1" style="cursor: pointer;"></i></td>
-                    </tr>
+                    <?php foreach ($payrollData as $payroll): ?>
+                        <tr>
+                            <td><?= htmlspecialchars($payroll['employeeID']) ?></td>
+                            <td><?= htmlspecialchars($payroll['lastName']) ?></td>
+                            <td><?= htmlspecialchars($payroll['firstName']) ?></td>
+                            <td><?= htmlspecialchars($payroll['paymentDate']) ?></td>
+                            <td>Received</td>
+                            <td id="view-icon-cell">
+                                <i class="fa-solid fa-eye view-payslip-icon" data-payslip-id="<?= htmlspecialchars($payroll['payrollID']) ?>" style="cursor: pointer;"></i>
+                            </td>
+                        </tr>
+                    <?php endforeach; ?>
                 </tbody>
             </table>
         </div>
@@ -1275,14 +1308,52 @@
         var view_payslip_icons = document.querySelectorAll('.view-payslip-icon');
         view_payslip_icons.forEach(function(icon) {
             icon.addEventListener('click', function() {
-                var payslip_id = icon.getAttribute('data-payslip-id');
-                // Fetch payslip data based on payslip_id (this is just a placeholder, you need to fetch the actual data)
-                document.getElementById('viewPayslipID').innerText = "Payslip ID: 1"; // Replace with actual data
-                document.getElementById('viewPayDate').innerText = "Pay Date: 01/15/2021"; // Replace with actual data
-                document.getElementById('viewPayPeriod').innerText = "Pay Period: 01/01/2021 - 01/15/2021"; // Replace with actual data
-                document.getElementById('PayslipOverviewModal').style.display = 'block';
+                var payslip_id = icon.getAttribute('data-payslip-id'); // Get the payslip ID from the data attribute
+
+                // Fetch payslip data from the server using AJAX
+                fetch('index.php', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ action: 'fetchPayslipDetails', payrollID: payslip_id }) // Send the payslipID to the backend
+                })
+                .then(response => response.json()) // Parse the response as JSON
+                .then(data => {
+                    if (data.success) {
+                        // Update the modal with fetched payslip details
+                        document.getElementById('viewPayslipID').innerText = `Payslip ID: ${data.payslip.payrollID}`;
+                        document.getElementById('viewPayDate').innerText = `Pay Date: ${data.payslip.paymentDate}`;
+                        document.getElementById('viewPayPeriod').innerText = `Pay Period: ${data.payslip.startDate} - ${data.payslip.endDate}`;
+
+                        // Update the payroll breakdown table
+                        document.querySelector('#PayslipOverviewModal table tbody').innerHTML = `
+                            <tr>
+                                <td>Hours Worked: ${data.payslip.hoursWorked} hours<br>
+                                    Pay per Hour: $${data.payslip.ratePerHour}<br>
+                                    Deductions: $${data.payslip.deductions}</td>
+                            </tr>
+                            <tr>
+                                <td id="netPay">Net Pay: $${data.payslip.netPay}</td>
+                            </tr>
+                        `;
+
+                        // Show the modal
+                        document.getElementById('PayslipOverviewModal').style.display = 'block';
+                    } else {
+                        alert('Failed to fetch payslip details: ' + data.message); // Show error message
+                    }
+                })
+                .catch(error => {
+                    console.error('Error fetching payslip details:', error);
+                    alert('An error occurred while fetching payslip details.');
+                });
             });
         });
+
+        // Close modal when clicking the close button
+        document.querySelector('#PayslipOverviewModal .close').addEventListener('click', function() {
+            document.getElementById('PayslipOverviewModal').style.display = 'none';
+        });
+
 
         // Filter Payroll Table
         // function filterPayrollTable() {
