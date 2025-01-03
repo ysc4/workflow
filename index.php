@@ -697,11 +697,11 @@
                             <label for="endDate">&emsp; To:</label>
                             <input type="date" id="endDate" name="endDate">
                             <label for="filterLeaveDepartmentFilter">&emsp; Department:</label>
-                            <select id="departmentLeaveFilter" name="department">
+                            <select id="departmentFilter" name="department">
                                 <option value="">All Departments</option>
-                                <option value="it">IT Department</option>
-                                <option value="hr">HR Department</option>
-                                <option value="finance">Finance Department</option>
+                                <option value="IT Department">IT Department</option>
+                                <option value="HR Department">HR Department</option>
+                                <option value="Finance Department">Finance Department</option>
                             </select>
                             <i class="fa-solid fa-sync" id="filterRefreshIcon" style="cursor: pointer; margin-left: 10px;"></i>
                         </form>
@@ -722,7 +722,7 @@
                         </thead>
                         <tbody id="leaveTableBody">
                             <?php
-                            $sql = "SELECT lr.leaveID, lr.employeeID, lr.startDate, lr.endDate, lr.leaveType, lr.leaveStatus, e.firstName, e.lastName 
+                            $sql = "SELECT lr.leaveID, lr.employeeID, lr.startDate, lr.endDate, lr.leaveType, lr.leaveStatus, e.firstName, e.lastName, e.department
                                     FROM leaverequest lr 
                                     JOIN employee e ON lr.employeeID = e.employeeID";
                             $stmt = $pdo->query($sql);
@@ -737,6 +737,7 @@
                                     <td><?= htmlspecialchars($request['endDate']); ?></td>
                                     <td><?= htmlspecialchars($request['leaveType']); ?></td>
                                     <td><?= htmlspecialchars($request['leaveStatus']); ?></td>
+                                    <td class="leave-department" style="display: none;"><?= htmlspecialchars($request['department']); ?></td>
                                 </tr>
                             <?php endforeach; ?>
                         </tbody>
@@ -1342,9 +1343,12 @@
                         }
 
                         // Update the leave status in the leave-table
-                        const leaveTableRow = document.querySelector(`tr[data-leave-id="${leaveID}"] td:last-child`);
+                        const leaveTableRow = document.querySelector(`#leaveTableBody tr[data-leave-id="${leaveID}"]`);
                         if (leaveTableRow) {
-                            leaveTableRow.textContent = leaveStatus;
+                            const statusCell = leaveTableRow.cells[6]; // Assuming "STATUS" is the 7th column
+                            if (statusCell) {
+                                statusCell.textContent = leaveStatus;
+                            }
                         }
 
                         alert(`Leave request ${leaveStatus.toLowerCase()}!`);
@@ -1389,7 +1393,7 @@
             rows.forEach(function(row) {
                 var rowStartDate = new Date(row.cells[2].innerText);
                 var rowEndDate = new Date(row.cells[3].innerText);
-                var rowDepartment = row.cells[4].innerText;
+                var rowDepartment = row.querySelector('.leave-department')?.innerText.trim();
 
                 var showRow = true;
 
