@@ -625,8 +625,8 @@
         <div class="header-container">
             <div id="left">
                 <h1>Employees Overview</h1>
-                <select id="department">
-                    <option value="IT Department">IT Department</option>
+                <select id="filterEmployeeDepartment">
+                    <option value="IT Department" selected>IT Department</option>
                     <option value="HR Department">HR Department</option>
                     <option value="Finance Department">Finance Department</option>
                 </select>
@@ -648,7 +648,7 @@
                         <th>VIEW</th>
                     </tr>
                 </thead>
-                <tbody>
+                <tbody id = "employeeOverviewTable">
                     <tr>
                         <?php
                             $sql = "SELECT * FROM employee";
@@ -656,14 +656,14 @@
                             $result = $stmt->fetchAll();
 
                             foreach ($result as $row): ?>
-                                <tr>
+                                <tr data-department="<?php echo htmlspecialchars($row['department']); ?>">
                                     <td><?php echo htmlspecialchars($row['employeeID']); ?></td>
                                     <td><?php echo htmlspecialchars($row['firstName']); ?></td>
                                     <td><?php echo htmlspecialchars($row['lastName']); ?></td>
                                     <td><?php echo htmlspecialchars($row['position']); ?></td>
                                     <td><?php echo htmlspecialchars($row['contactInformation']); ?></td>
                                     <td>Present</td>
-                                    <td id="view-icon-cell"><i class="fa-solid fa-eye view-employee-icon" data-id="<?php echo $row['employeeID']; ?>" style="cursor: pointer;"></i></td>
+                                    <td id="view-icon-cell"><i class="fa-solid fa-eye view-employee-icon" data-id="<?php echo htmlspecialchars($row['employeeID']); ?>" style="cursor: pointer;"></i></td>
                                 </tr>
                         <?php endforeach; ?>
                     </tr>
@@ -696,8 +696,8 @@
                             <input type="date" id="startDate" name="startDate">
                             <label for="endDate">&emsp; To:</label>
                             <input type="date" id="endDate" name="endDate">
-                            <label for="departmentFilter">&emsp; Department:</label>
-                            <select id="departmentFilter" name="department">
+                            <label for="filterLeaveDepartmentFilter">&emsp; Department:</label>
+                            <select id="departmentLeaveFilter" name="department">
                                 <option value="">All Departments</option>
                                 <option value="it">IT Department</option>
                                 <option value="hr">HR Department</option>
@@ -751,7 +751,7 @@
         <div class="header-container">
             <div id="left">
                 <h1>Payroll Overview</h1>
-                <select id="department">
+                <select id="filterPayrollDepartment">
                     <option value="it">IT Department</option>
                     <option value="hr">HR Department</option>
                     <option value="finance">Finance Department</option>
@@ -1072,11 +1072,14 @@
             }
         }
 
+        var edit_btn = document.getElementById("edit_employee");
+
         document.addEventListener('DOMContentLoaded', function() {
             document.querySelectorAll(".view-employee-icon").forEach(function (icon) {
             icon.addEventListener("click", function (event) {
                 event.preventDefault();
                 var employeeId = this.getAttribute("data-id");
+                console.log(employeeId);
 
                 // Fetch combined employee data
                 fetch(`index.php?fetchEmployeeData=true&employeeID=${employeeId}`)
@@ -1085,6 +1088,7 @@
                         if (data.success) {
                             // Populate employee details
                             var details = data.employeeDetails;
+                            edit_btn.value = employeeId;
                             document.getElementById("viewLastName").innerText = "Last Name: " + details.lastName;
                             document.getElementById("viewFirstName").innerText = "First Name: " + details.firstName;
                             document.getElementById("viewContactInfo").innerText = "Contact Information: " + details.contactInformation;
@@ -1134,7 +1138,6 @@
             });
 
             var add_btn = document.getElementById("add_employee");
-            var edit_btn = document.getElementById("edit_employee");
 
             add_btn.onclick = function() {
                 add_modal.style.display = "block";
@@ -1176,12 +1179,12 @@
         document.getElementById("editEmployeeForm").addEventListener("submit", function (event) {
             event.preventDefault(); // Prevent form submission from reloading the page
 
-            const employeeId = document.querySelector(".view-employee-icon").getAttribute("data-id");
+            const employeeId = edit_btn.value;
+            console.log("Employee ID:", employeeId); // Debug here
             const contactInfo = document.getElementById("editContactInfo").value;
             const department = document.getElementById("editDepartment").value;
             const position = document.getElementById("editPosition").value;
 
-            // Send the data to the server
             fetch("index.php?editEmployee=true", {
                 method: "POST",
                 headers: {
@@ -1204,13 +1207,26 @@
                         document.getElementById("viewDepartment").innerText = "Department: " + department;
                         document.getElementById("viewPosition").innerText = "Position: " + position;
 
+                        // Update the Employee Table
                         const employeeRow = document.querySelector(`.view-employee-icon[data-id='${employeeId}']`).closest("tr");
+                        if (!employeeRow) {
+                            console.error(`No element found for data-id="${employeeId}"`);
+                        }
                         if (employeeRow) {
-                            employeeRow.cells[3].innerText = position;           // Update position cell
-                            employeeRow.cells[4].innerText = contactInfo;       // Update contact information cell
+                            employeeRow.cells[3].innerText = position;        // Update position cell
+                            employeeRow.cells[4].innerText = contactInfo;    // Update contact information cell
+                            employeeRow.setAttribute("data-department", department); // Update the row's department
                         }
 
-                        // Close the Edit Modal and show the View Modal
+                        // Reapply the filter to ensure consistency
+                        const selectedDepartment = document.getElementById("department").value;
+                        if (employeeRow.getAttribute("data-department") === selectedDepartment) {
+                            employeeRow.style.display = ""; // Show row if it matches the filter
+                        } else {
+                            employeeRow.style.display = "none"; // Hide row if it doesn't match the filter
+                        }
+
+                        // Close the Edit Modal and reopen the View Modal
                         document.getElementById("editEmployeeModal").style.display = "none";
                         document.getElementById("viewEmployeeModal").style.display = "block";
                     } else {
@@ -1221,6 +1237,34 @@
                     console.error("Error updating employee details:", error);
                 });
         });
+
+        document.addEventListener('DOMContentLoaded', function () {
+            const departmentSelect = document.getElementById('filterEmployeeDepartment');
+            const employeeRows = document.querySelectorAll('#employeeOverviewTable tr');
+
+            // Function to filter rows based on department
+            function filterByDepartment(department) {
+                employeeRows.forEach(row => {
+                    const rowDepartment = row.getAttribute('data-department');
+                    console.log(`Row Department: ${rowDepartment}, Selected Department: ${department}`);
+                    if (rowDepartment === department) {
+                        row.style.display = ''; // Show the row
+                    } else {
+                        row.style.display = 'none'; // Hide the row
+                    }
+                });
+            }
+
+            // Automatically filter by default selected department
+            filterByDepartment(departmentSelect.value);
+
+            // Event listener for department selection
+            departmentSelect.addEventListener('change', function () {
+                const selectedDepartment = departmentSelect.value;
+                filterByDepartment(selectedDepartment);
+            });
+        });
+
 
         // Sorting the incoming leave requests
         var sortAscending = true;
