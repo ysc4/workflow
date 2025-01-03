@@ -144,7 +144,7 @@
     
     $sql = "
         SELECT 
-            e.employeeID, e.lastName, e.firstName, 
+            e.employeeID, e.lastName, e.firstName, e.department,
             p.payrollID, p.paymentDate, p.startDate, p.endDate, 
             p.hoursWorked, p.ratePerHour, p.deductions, p.netPay
         FROM 
@@ -451,12 +451,6 @@
             overflow: auto;
             margin-top: 0;
         }
-        #generate-payroll {
-            color: #F6F4F0;
-            cursor: pointer;
-            margin: 5px 10px 5px;
-            font-size: 1.5em;
-        }
         #payroll-table {
             overflow: auto;
             margin-top: 10;
@@ -753,27 +747,28 @@
             <div id="left">
                 <h1>Payroll Overview</h1>
                 <select id="filterPayrollDepartment">
-                    <option value="it">IT Department</option>
-                    <option value="hr">HR Department</option>
-                    <option value="finance">Finance Department</option>
+                    <option value="" selected>All Departments</option>
+                    <option value="IT Department">IT Department</option>
+                    <option value="HR Department">HR Department</option>
+                    <option value="Finance Department">Finance Department</option>
                 </select>
                 <select id="payPeriod">
-                    <option value="jan">January</option>
-                    <option value="feb">February</option>
-                    <option value="mar">March</option>
-                    <option value="apr">April</option>
-                    <option value="may">May</option>
-                    <option value="june">June</option>
-                    <option value="july">July</option>
-                    <option value="aug">August</option>
-                    <option value="sep">September</option>
-                    <option value="oct">October</option>
-                    <option value="nov">November</option>
-                    <option value="dec">December</option>
+                    <option value="" selected>- Choose Month -</option>
+                    <option value="1">January</option>
+                    <option value="2">February</option>
+                    <option value="3">March</option>
+                    <option value="4">April</option>
+                    <option value="5">May</option>
+                    <option value="6">June</option>
+                    <option value="7">July</option>
+                    <option value="8">August</option>
+                    <option value="9">September</option>
+                    <option value="10">October</option>
+                    <option value="11">November</option>
+                    <option value="12">December</option>
                 </select>
             </div>
-            <div id="right">
-                <i class="fa-solid fa-download" id="generate-payroll"></i>  
+            <div id="right"> 
                 <i class="fa-solid fa-plus" id="add_payslip"></i>            
             </div>
         </div>
@@ -797,6 +792,7 @@
                             <td><?= htmlspecialchars($payroll['firstName']) ?></td>
                             <td><?= htmlspecialchars($payroll['paymentDate']) ?></td>
                             <td>Received</td>
+                            <td class="payroll-department" style="display: none;"><?= htmlspecialchars($request['department']); ?></td>
                             <td id="view-icon-cell">
                                 <i class="fa-solid fa-eye view-payslip-icon" data-payslip-id="<?= htmlspecialchars($payroll['payrollID']) ?>" style="cursor: pointer;"></i>
                             </td>
@@ -1644,55 +1640,41 @@
             document.getElementById('PayslipOverviewModal').style.display = 'none';
         });
 
+        function filterPayrollTable() {
+            var selectedDepartment = document.getElementById('filterPayrollDepartment').value;
+            var selectedPayPeriod = document.getElementById('payPeriod').value;
 
-        // Filter Payroll Table
-        // function filterPayrollTable() {
-        //     var selectedDepartment = document.getElementById('department').value;
-        //     var selectedPayPeriod = document.getElementById('payPeriod').value;
+            var rows = document.querySelectorAll('#payrollOverviewTable tr');
+            var filteredRows = [];
 
-        //     var rows = document.querySelectorAll('#payrollTableBody tr');
-        //     var filteredRows = [];
+            rows.forEach(function(row) {
+                var rowPayPeriod = row.cells[3].innerText.split('-'); // Assuming pay period is in the 4th column
+                var rowDepartment = row.querySelector('.payroll-department')?.innerText.trim();
+                var monthEntry = parseInt(rowPayPeriod[1]);
+                var showRow = true;
 
-        //     rows.forEach(function(row) {
-        //         var rowDepartment = row.cells[4].innerText; // Assuming department is in the 5th column
-        //         var rowPayPeriod = row.cells[3].innerText; // Assuming pay period is in the 4th column
+                if (selectedDepartment && rowDepartment !== selectedDepartment) {
+                    showRow = false;
+                }
+                if (selectedPayPeriod && (monthEntry != parseInt(selectedPayPeriod))) {
+                    showRow = false;
+                    console.log(monthEntry + ' is not ' + selectedPayPeriod);
+                }
 
-        //         var showRow = true;
+                if (showRow) {
+                    row.style.display = '';
+                    filteredRows.push(row.cloneNode(true));
+                } else {
+                    row.style.display = 'none';
+                }
+            });
 
-        //         if (selectedDepartment && rowDepartment !== selectedDepartment) {
-        //             showRow = false;
-        //         }
-        //         if (selectedPayPeriod && !rowPayPeriod.includes(selectedPayPeriod)) {
-        //             showRow = false;
-        //         }
+            return filteredRows;
+        }
 
-        //         if (showRow) {
-        //             row.style.display = '';
-        //             filteredRows.push(row.cloneNode(true));
-        //         } else {
-        //             row.style.display = 'none';
-        //         }
-        //     });
-
-        //     return filteredRows;
-        // }
-
-        // document.getElementById('generatePayrollReport').addEventListener('click', function() {
-        //     var filteredRows = filterPayrollTable();
-
-        //     var modalTableBody = document.getElementById('payrollTableBody');
-        //     modalTableBody.innerHTML = ''; // Clear existing rows
-        //     filteredRows.forEach(function(row) {
-        //         modalTableBody.appendChild(row);
-        //     });
-
-        //     // Set the filtered values in the modal
-        //     document.getElementById('modalPayrollDepartment').innerText = "Department: " + document.getElementById('department').value || 'All Departments';
-        //     document.getElementById('modalPayPeriod').innerText = "Pay Period: " + document.getElementById('payPeriod').value || 'N/A';
-
-        //     var payrollReportModal = document.getElementById('payslipReportModal');
-        //     payrollReportModal.style.display = 'block';
-        // });
+        // Filter payroll table when user selects a department or pay period
+        document.getElementById('filterPayrollDepartment').addEventListener('change', filterPayrollTable);
+        document.getElementById('payPeriod').addEventListener('change', filterPayrollTable);
 
         // Add active class to the first navigation
         document.getElementById('leave_nav').addEventListener('click', function() {
