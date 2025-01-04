@@ -1,72 +1,49 @@
 <?php
-ini_set('display_errors', 1); // Display all errors
-error_reporting(E_ALL); // Show all errors
+// Database configuration
+$host = 'localhost';
+$db = 'u415861906_infosec2222';
+$user = 'root';
+$port = '3307';
+$pass = '';
+$charset = 'utf8mb4';
 
-$host = ''; // Hostname or IP address
-$db = 'u415861906_infosec2222'; // Database name
-$user = 'root'; // MySQL username
-$port = "3307"; // MySQL port
-$pass = ''; // MySQL password
-$charset = 'utf8mb4'; // Character set (optional but recommended)
+$dsn = "mysql:host=$host;port=$port;dbname=$db;charset=$charset";
+$options = [
+    PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION,
+    PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC,
+    PDO::ATTR_EMULATE_PREPARES => false,
+];
 
 try {
-    // Set DSN (Data Source Name)
-    $dsn = "mysql:host=$host;port=$port;dbname=$db;charset=$charset";
-    
-    // Options for PDO
-    $options = [
-        PDO::ATTR_ERRMODE            => PDO::ERRMODE_EXCEPTION, // Enables exceptions for errors
-        PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC,       // Fetches results as associative arrays
-        PDO::ATTR_EMULATE_PREPARES   => false,                  // Disables emulated prepared statements
-    ];
-    
-    // Create a PDO instance
     $pdo = new PDO($dsn, $user, $pass, $options);
-    
 } catch (PDOException $e) {
-    // Handle connection errors
-    die("Connection failed: " . $e->getMessage());
+    echo json_encode(['success' => false, 'message' => 'Database connection failed']);
+    exit;
 }
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-    // Retrieve username and password from POST request
     $username = $_POST['username'] ?? '';
     $password = $_POST['password'] ?? '';
 
-    // Sanitize user input to prevent SQL injection
-    $username = htmlspecialchars($username);
-    $password = htmlspecialchars($password);
+    // Fetch user credentials
+    $stmt = $pdo->prepare("
+        SELECT uc.username, uc.password, e.department
+        FROM UserCredentials uc
+        JOIN employee e ON uc.employeeID = e.employeeID
+        WHERE uc.username = :username
+    ");
+    $stmt->execute(['username' => $username]);
+    $user = $stmt->fetch();
 
-    // Validate the credentials
-    try {
-        $sql = "SELECT * FROM USERCREDENTIALS WHERE username = :username AND password = :password";
-        $stmt = $pdo->prepare($sql);
-        $stmt->execute(['username' => $username, 'password' => $password]);
-        $user = $stmt->fetch();
-
-        if ($user) {
-            // If user exists, fetch the department of the employee
-            $employeeId = $user['employeeID'];
-            $sql = "SELECT department FROM EMPLOYEE WHERE employeeID = :employeeID";
-            $stmt = $pdo->prepare($sql);
-            $stmt->execute(['employeeID' => $employeeId]);
-            $employee = $stmt->fetch();
-
-            if ($employee) {
-                // Return the appropriate response based on department
-                echo json_encode(['status' => 'success', 'department' => $employee['department']]);
-            } else {
-                echo json_encode(['status' => 'error', 'message' => 'Department not found.']);
-            }
-        } else {
-            echo json_encode(['status' => 'error', 'message' => 'Invalid username or password.']);
-        }
-    } catch (PDOException $e) {
-        // Handle any database query errors
-        echo json_encode(['status' => 'error', 'message' => 'Database error: ' . $e->getMessage()]);
+    if ($user && $user['password'] === $password) {
+        echo json_encode(['success' => true, 'department' => $user['department']]);
+    } else {
+        echo json_encode(['success' => false, 'message' => 'Invalid username or password']);
     }
+    exit;
 }
 ?>
+
 
 
 <!DOCTYPE html>
@@ -593,22 +570,21 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     </div>
 
     <div class="bg" id="login">
-    <div class="login-container">
-        <div class="login-form">
-            <h2>Login</h2>
-            <form id="loginForm">
-                <label for="username">Username:</label>
-                <input type="text" id="username" name="username" required><br>
-                <label for="password">Password:</label>
-                <input type="password" id="password" name="password" required><br>
-                <div class="button-container">
-                    <button type="submit" class="submit">Login</button>
-                </div>
-            </form>
+        <div class="login-container">
+            <div class="login-form">
+                <h2>Login</h2>
+                <form>
+                    <label for="username">Username:</label>
+                    <input type="text" id="username" name="username"><br>
+                    <label for="password">Password:</label>
+                    <input type="password" id="password" name="password"><br>
+                    <div class="button-container">
+                        <button type="submit" class="submit">Login</button>
+                    </div>
+                </form>
+            </div>
         </div>
     </div>
-</div>
-
 
     <div class="bg hidden" id="hr_main">
         <nav>
@@ -1581,51 +1557,51 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         });
 
         //login
-        document.addEventListener('DOMContentLoaded', function() {
+        document.addEventListener('DOMContentLoaded', function () {
     const loginButton = document.querySelector('.login-form button');
     const loginContainer = document.getElementById('login');
     const hrMainContainer = document.getElementById('hr_main');
     const employeeMainContainer = document.getElementById('employee_main');
 
-    document.getElementById('loginForm').addEventListener('submit', function(event) {
+    loginButton.addEventListener('click', function (event) {
         event.preventDefault();
 
         const username = document.getElementById('username').value;
         const password = document.getElementById('password').value;
 
-        // Perform AJAX request to validate the user credentials
-        fetch('login.php', {
+        // Send login data to the server
+        fetch('http://localhost/workflow2Copy/merge.php', { // use URL, not file path
             method: 'POST',
-            body: new URLSearchParams({
-                'username': username,
-                'password': password
-            })
+            headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+            body: new URLSearchParams({ username, password })
         })
-        .then(response => response.text())  // Get the raw response as text first
+        .then(response => response.json())
         .then(data => {
-            try {
-                const jsonData = JSON.parse(data);  // Attempt to parse the response as JSON
-                if (jsonData.status === 'success') {
+            if (data.success) {
+                if (data.department === 'HR Department') {
                     loginContainer.classList.add('hidden');
-                    if (jsonData.department === 'HR Department') {
-                        hrMainContainer.classList.remove('hidden');
-                    } else {
-                        employeeMainContainer.classList.remove('hidden');
-                    }
-                } else {
-                    alert('Error: ' + jsonData.message);
+                    hrMainContainer.classList.remove('hidden');
+                } else if (data.department === 'IT Department' || data.department === 'Finance Department') {
+                    loginContainer.classList.add('hidden');
+                    employeeMainContainer.classList.remove('hidden');
                 }
-            } catch (e) {
-                console.error('Error parsing JSON:', e);
-                alert('An error occurred while processing the response.');
+            } else {
+                alert(data.message);
             }
         })
         .catch(error => {
             console.error('Error:', error);
-            alert('An error occurred: ' + error.message);
         });
+        userIcon.addEventListener('click', function() { // logout
+                hrMainContainer.classList.add('hidden');
+                employeeMainContainer.classList.add('hidden');
+                loginContainer.classList.remove('hidden');
+            });
     });
 });
 
-    </script>
+
+
+
+</script>
     </body>
