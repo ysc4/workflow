@@ -87,8 +87,7 @@
 	$currentYear = date('Y');   // Current year in 4-digit format (e.g., 2025)
 
 	// SQL query to get payroll for the current month and year dynamically
-	$sql = "
-		SELECT hoursWorked AS totalHoursWorked, ratePerHour, deductions, netPay
+	$sql = "SELECT hoursWorked AS totalHoursWorked, ratePerHour, deductions, netPay
 		FROM payroll
 		WHERE employeeID = :employeeID 
 		AND MONTH(paymentDate) = :currentMonth 
@@ -636,6 +635,7 @@
         .payroll-overview h2, .payment-history h2 {
             color: #2E5077;
             font-size: 28px;
+            overflow:auto;
             font-weight: 1000;
             margin: 5px 5px 10px;
         }
@@ -1379,8 +1379,10 @@
 					.then(data => {
 						if (data.success) {
 							alert('Leave request submitted successfully');
-							// Optionally, reset the form
-							document.querySelector("form").reset();
+							 // Reset the form fields
+                            document.getElementById('leave-type').value = '';
+                            document.getElementById('start-date').value = '';
+                            document.getElementById('end-date').value = '';
 
 							location.reload();
 						} else {
