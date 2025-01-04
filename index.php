@@ -118,11 +118,11 @@
     
 
     if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['lastName'])) {
-        $ln = $_POST['lastName'];
-        $fn = $_POST['firstName'];
-        $ci = $_POST['contactInformation'];
-        $dp = $_POST['department'];
-        $p = $_POST['position'];
+        $lastName = filter_var(trim($_POST['lastName']));
+        $firstName = filter_var(trim($_POST['firstName']));
+        $contactInformation = filter_var(trim($_POST['contactInformation']));
+        $department = filter_var(trim($_POST['department']));
+        $position = filter_var(trim($_POST['position']));
     
         // Insert into the database
         $sql = "INSERT INTO employee (lastName, firstName, department, contactInformation, position, leaveBalance) VALUES (:ln, :fn, :dp, :ci, :p, 10)";
@@ -259,15 +259,17 @@
                     $payslip = $data['payslipData'];
 
                     try {
-                        $stmt = $pdo->prepare("INSERT INTO payroll (employeeID, startDate, endDate, hoursWorked, ratePerHour, deductions, netPay) VALUES (?, ?, ?, ?, ?, ?, ?)");
+                        $stmt = $pdo->prepare("INSERT INTO payroll (employeeID, startDate, endDate, hoursWorked, ratePerHour, salary, deductions, netPay, paymentDate) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)");
                         $success = $stmt->execute([
                             $payslip['employeeID'],
                             $payslip['startPayDate'],
                             $payslip['endPayDate'],
                             $payslip['hoursWorked'],
                             $payslip['ratePerHour'],
+                            $payslip['salary'],
                             $payslip['deductions'],
-                            $payslip['netPay']
+                            $payslip['netPay'],
+                            $payslip['paymentDate']
                         ]);
 
                         echo json_encode(['success' => $success, 'message' => $success ? 'Payslip generated successfully!' : 'Failed to insert payslip.']);
@@ -863,24 +865,19 @@
             <hr>
             <form id="addEmployeeForm" method = "POST">
                 <label for="lastName">Last Name:</label>
-                <input type="text" id="lastName" name="lastName"><br>
+                <input type="text" id="lastName" name="lastName" required autofocus><br>
                 <label for="firstName">First Name:</label>
-                <input type="text" id="firstName" name="firstName"><br>
+                <input type="text" id="firstName" name="firstName" required><br>
                 <label for="contactInfo">Contact Information:</label>
-                <input type="text" id="contactInfo" name="contactInformation"><br>
+                <input type="text" id="contactInfo" name="contactInformation" required><br>
                 <label for="department">Department:</label>
-                <select id="department" name = "department">
+                <select id="department" name = "department" required>
                     <option value="IT Department">IT Department</option>
                     <option value="HR Department">HR Department</option>
                     <option value="Finance Department">Finance Department</option>
                 </select><br>
                 <label for="position">Position:</label>
-                <input type="text" id="position" name="position"><br>
-                <label for="status">Status:</label>
-                <select id="status" name="status">
-                    <option value="active">Active</option>
-                    <option value="onLeave">On Leave</option>
-                </select><br>
+                <input type="text" id="position" name="position" required><br>
                 <div class="form-group">
                     <button id="add-employee" class="submit" type="submit">Add Employee</button>
                 </div>
@@ -909,11 +906,6 @@
                 </select><br>
                 <label for="editPosition">Position:</label>
                 <input type="text" id="editPosition" name="position" required><br>
-                <label for="editStatus">Status:</label>
-                <select id="editStatus" name="status">
-                    <option value="active">Active</option>
-                    <option value="onLeave">On Leave</option>
-                </select><br>
                 <div class="form-group">
                     <button id="edit-employee" class="submit" type="submit">Edit Employee</button>
                 </div>
@@ -1015,24 +1007,24 @@
             <h2>Generate Payslip</h2>
             <hr>
             <form>
-                <label for="employeeID" required autofocus>Employee ID:</label>
-                <input type="text" id="inputEmployeeID" name="employeeID"><br>
+                <label for="employeeID">Employee ID:</label>
+                <input type="text" id="inputEmployeeID" name="employeeID" required autofocus><br>
                 <label for="employeeName">Employee Name:</label>
-                <input type="text" id="inputEmployeeName" name="employeeName" readonly><br>
+                <input type="text" id="inputEmployeeName" name="employeeName" readonly required><br>
                 <label for="position">Position:</label>
-                <input type="text" id="positionPayslip" name="positionPayslip" readonly><br>
+                <input type="text" id="positionPayslip" name="positionPayslip" readonly required><br>
                 <label for="startDate">Start Pay Date:</label>
                 <input type="date" id="startPayDate" name="startPayDate" required><br>
                 <label for="endDate">End Pay Date:</label>
                 <input type="date" id="endPayDate" name="endPayDate" required><br>
                 <label for="hoursWorked">Hour/s Worked:</label>
-                <input type="text" id="inputHoursWorked" name="hoursWorked" readonly><br>
+                <input type="text" id="inputHoursWorked" name="hoursWorked" readonly required><br>
                 <label for="payPerHour" required>Pay per hour:</label>
-                <input type="text" id="inputPayPerHour" name="payPerDay"><br>
+                <input type="text" id="inputPayPerHour" name="payPerDay" required><br>
                 <label for="deduction">Deduction/s:</label>
-                <input type="text" id="inputDeduction" name="deduction" readonly><br>
+                <input type="text" id="inputDeduction" name="deduction" readonly required><br>
                 <label for="tax">Net Pay:</label>
-                <input type="text" id="calculateNetPay" name="netPay" readonly><br>
+                <input type="text" id="calculateNetPay" name="netPay" readonly required><br>
             </form>
             <div class="button-container">
                 <button id="generatePayslipButton" class="submit">Generate Payslip</button>
@@ -1225,14 +1217,46 @@
             }
         });
 
+        document.getElementById('addEmployeeForm').addEventListener('submit', function (event) {
+            // Prevent default form submission
+            event.preventDefault();
+
+            // Validate Last Name
+            const lastName = document.getElementById('lastName').value.trim();
+            if (!/^[a-zA-Z\s]+$/.test(lastName)) {
+                alert('Last Name must only contain letters and spaces.');
+                return;
+            }
+
+            // Validate First Name
+            const firstName = document.getElementById('firstName').value.trim();
+            if (!/^[a-zA-Z\s]+$/.test(firstName)) {
+                alert('First Name must only contain letters and spaces.');
+                return;
+            }
+
+            // Validate Position
+            const position = document.getElementById('position').value.trim();
+            if (position === '') {
+                alert('Position is required.');
+                return;
+            }
+            alert('Successful insertion of employee');
+            // All validations passed, submit the form
+            this.submit();
+        });
+
         document.getElementById("editEmployeeForm").addEventListener("submit", function (event) {
             event.preventDefault(); // Prevent form submission from reloading the page
 
             const employeeId = edit_btn.value;
-            console.log("Employee ID:", employeeId); // Debug here
-            const contactInfo = document.getElementById("editContactInfo").value;
-            const department = document.getElementById("editDepartment").value;
-            const position = document.getElementById("editPosition").value;
+            const contactInfo = document.getElementById("editContactInfo").value.trim();
+            const department = document.getElementById("editDepartment").value.trim();
+            const position = document.getElementById("editPosition").value.trim();
+            if (position === '') {
+                alert('Position is required.');
+                return;
+            }
 
             fetch("index.php?editEmployee=true", {
                 method: "POST",
@@ -1597,12 +1621,13 @@
                 });
             });
 
+            var grossPay = 0;
             // Calculate Gross Pay, Deductions, and Net Pay
             inputPayPerHour.addEventListener('input', function () {
                 const ratePerHour = parseFloat(inputPayPerHour.value);
                 const hoursWorked = parseFloat(inputHoursWorked.value);
                 if (!isNaN(ratePerHour) && !isNaN(hoursWorked)) {
-                    const grossPay = ratePerHour * hoursWorked;
+                    grossPay = ratePerHour * hoursWorked;
                     const deduction = grossPay * 0.15; // 15% deductions
                     const netPay = grossPay - deduction;
 
@@ -1613,14 +1638,35 @@
 
             // Generate Payslip
             generatePayslipButton.addEventListener('click', function () {
+                const today = new Date();
+                const year = today.getFullYear();
+                const month = String(today.getMonth() + 1).padStart(2, '0'); // Month is 0-indexed
+                const day = String(today.getDate()).padStart(2, '0');
+                const formattedDate = `${year}-${month}-${day}`;
+
+                // Validate form inputs
+                const form = document.querySelector('#generatePayslipModal form');
+                if (!form.checkValidity()) {
+                    alert('Please fill out all required fields.');
+                    return;
+                }
+
+                // Pay Per Hour should only be numerical values
+                if (!/^\d+(?:\.\d{1,2})?$/.test(inputPayPerHour.value.trim())) {
+                    alert('Pay Per Hour should be a numerical value with optional decimal points.');
+                    return;
+                }
+
                 const payslipData = {
                     employeeID: inputEmployeeID.value.trim(),
                     startPayDate: startPayDate.value,
                     endPayDate: endPayDate.value,
                     hoursWorked: inputHoursWorked.value,
-                    ratePerHour: inputPayPerHour.value,
+                    ratePerHour: inputPayPerHour.value.trim(),
+                    salary: grossPay,
                     deductions: inputDeduction.value,
-                    netPay: calculateNetPay.value
+                    netPay: calculateNetPay.value,
+                    paymentDate: formattedDate
                 };
 
                 fetch('index.php', {
