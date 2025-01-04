@@ -36,16 +36,41 @@
             $stmt = $pdo->prepare($employeeSql);
             $stmt->execute([$employeeID]);
             $employeeDetails = $stmt->fetch(PDO::FETCH_ASSOC);
-    
+
+            // Query to fetch employee status
+            $sql = " SELECT e.employeeID, e.firstName, e.lastName,
+                CASE
+                    WHEN EXISTS (
+                        SELECT 1
+                        FROM attendance a 
+                        WHERE a.employeeID = e.employeeID 
+                        AND DATE(a.timeIn) = CURDATE()
+                    ) THEN 'Present'
+                    WHEN EXISTS (
+                        SELECT 1 
+                        FROM leaverequest l 
+                        WHERE l.employeeID = e.employeeID 
+                        AND CURDATE() BETWEEN l.startDate AND l.endDate
+                    ) THEN 'On Leave'
+                    ELSE 'Absent'
+                END AS status
+            FROM 
+                employee e
+            WHERE e.employeeID =?            ";
+            $stmt = $pdo->prepare($sql);
+            $stmt->execute([$employeeID]);
+            $employeeStatus = $stmt->fetch(PDO::FETCH_ASSOC);
+                
+                
             // Fetch leave history
-            $leaveSql = "SELECT leaveType, startDate, endDate, DATEDIFF(startDate, endDate) + 1 AS days
+            $leaveSql = "SELECT leaveType, startDate, endDate, DATEDIFF(endDate, startDate) + 1 AS days
                          FROM leaverequest WHERE employeeID = ?";
             $stmt = $pdo->prepare($leaveSql);
             $stmt->execute([$employeeID]);
             $leaveHistory = $stmt->fetchAll(PDO::FETCH_ASSOC);
     
             // Fetch payment history
-            $paymentSql = "SELECT paymentDate, netPay 
+            $paymentSql = "SELECT startDate, endDate, paymentDate, netPay 
                            FROM payroll WHERE employeeID = ?";
             $stmt = $pdo->prepare($paymentSql);
             $stmt->execute([$employeeID]);
@@ -56,7 +81,8 @@
                     "success" => true,
                     "employeeDetails" => $employeeDetails,
                     "leaveHistory" => $leaveHistory,
-                    "paymentHistory" => $paymentHistory
+                    "paymentHistory" => $paymentHistory,
+                    "employeeStatus" => $employeeStatus,
                 ]);
             } else {
                 echo json_encode(["success" => false, "message" => "Employee not found."]);
@@ -645,7 +671,31 @@
                 <tbody id = "employeeOverviewTable">
                     <tr>
                         <?php
-                            $sql = "SELECT * FROM employee";
+                            $sql = "
+                                SELECT 
+                                    e.employeeID,
+                                    e.firstName,
+                                    e.lastName,
+                                    e.position,
+                                    e.contactInformation,
+                                    e.department,
+                                    CASE
+                                        WHEN EXISTS (
+                                            SELECT 1
+                                            FROM attendance a
+                                            WHERE a.employeeID = e.employeeID
+                                            AND DATE(a.timeIn) = CURDATE()
+                                        ) THEN 'Present'
+                                        WHEN EXISTS (
+                                            SELECT 1
+                                            FROM leaverequest l
+                                            WHERE l.employeeID = e.employeeID
+                                            AND CURDATE() BETWEEN l.startDate AND l.endDate
+                                        ) THEN 'On Leave'
+                                        ELSE 'Absent'
+                                    END AS status
+                                FROM employee e
+                            ";
                             $stmt = $pdo->query($sql);
                             $result = $stmt->fetchAll();
 
@@ -656,8 +706,10 @@
                                     <td><?php echo htmlspecialchars($row['lastName']); ?></td>
                                     <td><?php echo htmlspecialchars($row['position']); ?></td>
                                     <td><?php echo htmlspecialchars($row['contactInformation']); ?></td>
-                                    <td>Present</td>
-                                    <td id="view-icon-cell"><i class="fa-solid fa-eye view-employee-icon" data-id="<?php echo htmlspecialchars($row['employeeID']); ?>" style="cursor: pointer;"></i></td>
+                                    <td><?php echo htmlspecialchars($row['status']); ?></td>
+                                    <td id="view-icon-cell">
+                                        <i class="fa-solid fa-eye view-employee-icon" data-id="<?php echo htmlspecialchars($row['employeeID']); ?>" style="cursor: pointer;"></i>
+                                    </td>
                                 </tr>
                         <?php endforeach; ?>
                     </tr>
@@ -1076,7 +1128,6 @@
             icon.addEventListener("click", function (event) {
                 event.preventDefault();
                 var employeeId = this.getAttribute("data-id");
-                console.log(employeeId);
 
                 // Fetch combined employee data
                 fetch(`index.php?fetchEmployeeData=true&employeeID=${employeeId}`)
@@ -1085,13 +1136,14 @@
                         if (data.success) {
                             // Populate employee details
                             var details = data.employeeDetails;
+                            var status = data.employeeStatus;
                             edit_btn.value = employeeId;
                             document.getElementById("viewLastName").innerText = "Last Name: " + details.lastName;
                             document.getElementById("viewFirstName").innerText = "First Name: " + details.firstName;
                             document.getElementById("viewContactInfo").innerText = "Contact Information: " + details.contactInformation;
                             document.getElementById("viewDepartment").innerText = "Department: " + details.department;
                             document.getElementById("viewPosition").innerText = "Position: " + details.position;
-                            document.getElementById("viewStatus").innerText = "Status: " + details.status;
+                            document.getElementById("viewStatus").innerText = "Status: " + status.status;
 
                             // Populate leave history
                             var leaveTbody = document.querySelector("#leaveHistoryTable tbody");
@@ -1100,8 +1152,8 @@
                                 var row = `
                                     <tr>
                                         <td>${leave.leaveType}</td>
-                                        <td>${leave.endDate}</td>
                                         <td>${leave.startDate}</td>
+                                        <td>${leave.endDate}</td>
                                         <td>${leave.days}</td>
                                     </tr>
                                 `;
@@ -1114,7 +1166,7 @@
                             data.paymentHistory.forEach(function (payment) {
                                 var row = `
                                     <tr>
-                                        <td>${payment.paymentPeriod}</td>
+                                        <td>${payment.startDate} - ${payment.endDate}</td>
                                         <td>${payment.paymentDate}</td>
                                         <td>$${payment.netPay}</td>
                                     </tr>
@@ -1474,6 +1526,8 @@
                         if (data.success) {
                             inputEmployeeName.value = `${data.employee.firstName} ${data.employee.lastName}`;
                             position.value = data.employee.position;
+                                            
+                            disableUnavailableDates(inputEmployeeID.value);
                         } else {
                             alert('Employee not found!');
                         }
@@ -1581,6 +1635,7 @@
                         // Close modal and clear form
                         generatePayslipModal.style.display = 'none';
                         document.querySelector('#generatePayslipModal form').reset();
+                        location.reload();
                     } else {
                         alert('Failed to generate payslip: ' + data.message);
                     }
