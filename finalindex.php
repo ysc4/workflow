@@ -1,3 +1,383 @@
+<?php
+	$host = ''; // Hostname or IP address
+	$db = 'u415861906_infosec2222'; // Database name
+	$user = 'root'; // MySQL username
+	$port = "3307";
+	$pass = ''; // MySQL password
+	$charset = 'utf8mb4'; // Character set (optional but recommended)
+
+	try {
+		// Set DSN (Data Source Name)
+		$dsn = "mysql:host=$host;port=$port;dbname=$db;charset=$charset";
+		
+		// Options for PDO
+		$options = [
+			PDO::ATTR_ERRMODE            => PDO::ERRMODE_EXCEPTION, // Enables exceptions for errors
+			PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC,       // Fetches results as associative arrays
+			PDO::ATTR_EMULATE_PREPARES   => false,                  // Disables emulated prepared statements
+		];
+		
+		// Create a PDO instance
+		$pdo = new PDO($dsn, $user, $pass, $options);
+		
+	} catch (PDOException $e) {
+		// Handle connection errors
+		echo "Connection failed: " . $e->getMessage();
+	}
+
+    if ($_SERVER['REQUEST_METHOD'] === 'GET' && isset($_GET['action']) && $_GET['action'] === 'getEmployees') {
+        header('Content-Type: application/json');
+    
+        $sql = "
+            SELECT 
+                e.employeeID,
+                e.lastName,
+                e.firstName,
+                e.position,
+                e.contactInformation,
+                e.department,
+                CASE
+                    WHEN EXISTS (
+                        SELECT 1
+                        FROM attendance a
+                        WHERE a.employeeID = e.employeeID
+                        AND DATE(a.timeIn) = CURDATE()
+                    ) THEN 'Present'
+                    WHEN EXISTS (
+                        SELECT 1
+                        FROM leaverequest l
+                        WHERE l.employeeID = e.employeeID
+                        AND CURDATE() BETWEEN l.startDate AND l.endDate
+                    ) THEN 'On Leave'
+                    ELSE 'Absent'
+                END AS status
+            FROM employee e
+        ";
+        
+        $stmt = $pdo->query($sql);
+        $employees = $stmt->fetchAll(PDO::FETCH_ASSOC);
+    
+        echo json_encode($employees);
+        exit();
+    }   
+    
+    
+    if ($_SERVER['REQUEST_METHOD'] === 'GET' && isset($_GET['action']) && $_GET['action'] === 'getPayslips') {
+        header('Content-Type: application/json');
+    
+        $sql = "
+        SELECT 
+            e.employeeID, e.lastName, e.firstName, e.department,
+            p.payrollID, p.paymentDate, p.startDate, p.endDate, 
+            p.hoursWorked, p.ratePerHour, p.deductions, p.netPay
+        FROM 
+            payroll p
+        JOIN 
+            employee e ON e.employeeID = p.employeeID
+        ";
+        
+        $stmt = $pdo->query($sql);
+        $payslips = $stmt->fetchAll(PDO::FETCH_ASSOC);
+    
+        echo json_encode($payslips);
+        exit();
+    }   
+
+    if (isset($_GET['fetchEmployeeData']) && isset($_GET['employeeID'])) {
+        header('Content-Type: application/json');
+        $employeeID = $_GET['employeeID'];
+    
+        try {
+            // Fetch employee details
+            $employeeSql = "SELECT firstName, lastName, contactInformation, department, position
+                            FROM employee WHERE employeeID = ?";
+            $stmt = $pdo->prepare($employeeSql);
+            $stmt->execute([$employeeID]);
+            $employeeDetails = $stmt->fetch(PDO::FETCH_ASSOC);
+
+            // Query to fetch employee status
+            $sql = " SELECT e.employeeID, e.firstName, e.lastName,
+                CASE
+                    WHEN EXISTS (
+                        SELECT 1
+                        FROM attendance a 
+                        WHERE a.employeeID = e.employeeID 
+                        AND DATE(a.timeIn) = CURDATE()
+                    ) THEN 'Present'
+                    WHEN EXISTS (
+                        SELECT 1 
+                        FROM leaverequest l 
+                        WHERE l.employeeID = e.employeeID 
+                        AND CURDATE() BETWEEN l.startDate AND l.endDate
+                    ) THEN 'On Leave'
+                    ELSE 'Absent'
+                END AS status
+            FROM 
+                employee e
+            WHERE e.employeeID =?            ";
+            $stmt = $pdo->prepare($sql);
+            $stmt->execute([$employeeID]);
+            $employeeStatus = $stmt->fetch(PDO::FETCH_ASSOC);
+                
+                
+            // Fetch leave history
+            $leaveSql = "SELECT leaveType, startDate, endDate, DATEDIFF(endDate, startDate) + 1 AS days
+                         FROM leaverequest WHERE employeeID = ?";
+            $stmt = $pdo->prepare($leaveSql);
+            $stmt->execute([$employeeID]);
+            $leaveHistory = $stmt->fetchAll(PDO::FETCH_ASSOC);
+    
+            // Fetch payment history
+            $paymentSql = "SELECT startDate, endDate, paymentDate, netPay 
+                           FROM payroll WHERE employeeID = ?";
+            $stmt = $pdo->prepare($paymentSql);
+            $stmt->execute([$employeeID]);
+            $paymentHistory = $stmt->fetchAll(PDO::FETCH_ASSOC);
+    
+            if ($employeeDetails) {
+                echo json_encode([
+                    "success" => true,
+                    "employeeDetails" => $employeeDetails,
+                    "leaveHistory" => $leaveHistory,
+                    "paymentHistory" => $paymentHistory,
+                    "employeeStatus" => $employeeStatus,
+                ]);
+            } else {
+                echo json_encode(["success" => false, "message" => "Employee not found."]);
+            }
+        } catch (PDOException $e) {
+            echo json_encode(["success" => false, "message" => "Database error: " . $e->getMessage()]);
+        }
+        exit;
+    }
+
+    if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST)) {
+        header('Content-Type: application/json');
+    
+        try {
+            $input = json_decode(file_get_contents("php://input"), true);
+    
+            $lastName = filter_var($input['lastName'], FILTER_SANITIZE_STRING);
+            $firstName = filter_var($input['firstName'], FILTER_SANITIZE_STRING);
+            $contactInformation = filter_var($input['contactInformation'], FILTER_SANITIZE_STRING);
+            $department = filter_var($input['department'], FILTER_SANITIZE_STRING);
+            $position = filter_var($input['position'], FILTER_SANITIZE_STRING);
+    
+            if (!preg_match('/^[a-zA-Z\s]+$/', $lastName)) {
+                throw new Exception("Invalid last name.");
+            }
+    
+            if (!preg_match('/^[a-zA-Z\s]+$/', $firstName)) {
+                throw new Exception("Invalid first name.");
+            }
+    
+            if (empty($position)) {
+                throw new Exception("Position is required.");
+            }
+    
+            $stmt = $pdo->prepare("
+                INSERT INTO employee (lastName, firstName, contactInformation, department, position)
+                VALUES (:lastName, :firstName, :contactInformation, :department, :position)
+            ");
+            $stmt->execute([
+                ':lastName' => $lastName,
+                ':firstName' => $firstName,
+                ':contactInformation' => $contactInformation,
+                ':department' => $department,
+                ':position' => $position,
+            ]);
+    
+            echo json_encode(["success" => true]);
+        } catch (Exception $e) {
+            echo json_encode(["success" => false, "message" => $e->getMessage()]);
+        }
+        exit();
+    }
+
+    // Edit Employee
+    if (isset($_GET['editEmployee'])) {
+        header('Content-Type: application/json');
+        $input = json_decode(file_get_contents("php://input"), true);
+
+        try {
+            $sql = "UPDATE employee 
+                    SET contactInformation = ?, department = ?, position = ?
+                    WHERE employeeID = ?";
+            $stmt = $pdo->prepare($sql);
+            $stmt->execute([
+                $input['contactInformation'],
+                $input['department'],
+                $input['position'],
+                $input['employeeID']
+            ]);
+
+            echo json_encode(["success" => true]);
+        } catch (PDOException $e) {
+            echo json_encode(["success" => false, "message" => "Database error: " . $e->getMessage()]);
+        }
+        exit;
+    }
+    
+
+    try {
+        $sql = "SELECT
+                    lr.leaveID,
+                    lr.employeeID, 
+                    CONCAT(e.firstName, ' ', e.lastName) AS employeeName, 
+                    lr.startDate, 
+                    lr.endDate, 
+                    lr.leaveType
+                FROM leaveRequest lr
+                JOIN employee e ON lr.employeeID = e.employeeID
+                WHERE lr.leaveStatus = 'Pending' AND lr.startDate > CURDATE()";
+
+        $stmt = $pdo->query($sql);
+        $incomingLeaves = $stmt->fetchAll(PDO::FETCH_ASSOC);
+    } catch (PDOException $e) {
+        echo "Error fetching leave requests: " . $e->getMessage();
+        exit;
+    }
+
+    if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['leaveID'], $_POST['leaveStatus'])) {
+        $leaveID = $_POST['leaveID'];
+        $leaveStatus = $_POST['leaveStatus'];
+
+        try {
+            $sql = "UPDATE leaveRequest SET leaveStatus = :leaveStatus WHERE leaveID = :leaveID";
+            $stmt = $pdo->prepare($sql);
+            $stmt->execute(['leaveStatus' => $leaveStatus, 'leaveID' => $leaveID]);
+            echo json_encode(['success' => true]);
+        } catch (PDOException $e) {
+            echo json_encode(['success' => false, 'message' => $e->getMessage()]);
+        }
+        exit;
+    }
+    
+    $sql = "
+        SELECT 
+            e.employeeID, e.lastName, e.firstName, e.department,
+            p.payrollID, p.paymentDate, p.startDate, p.endDate, 
+            p.hoursWorked, p.ratePerHour, p.deductions, p.netPay
+        FROM 
+            payroll p
+        JOIN 
+            employee e ON e.employeeID = p.employeeID
+        ";
+    $stmt = $pdo->query($sql);
+    $payrollData = $stmt->fetchAll(PDO::FETCH_ASSOC);
+    
+   if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+    $data = json_decode(file_get_contents('php://input'), true);
+
+    if (isset($data['action'])) { //Check if action is set
+        switch ($data['action']) {
+            case 'fetchPayslipDetails':
+                if (isset($data['payrollID'])) {
+                    $stmt = $pdo->prepare("SELECT * FROM payroll WHERE payrollID = ?");
+                    $stmt->execute([$data['payrollID']]);
+                    $payslip = $stmt->fetch(PDO::FETCH_ASSOC);
+                    echo json_encode(['success' => $payslip !== false, 'payslip' => $payslip ?? null]); // Use null coalescing
+                } else {
+                    echo json_encode(['success' => false, 'message' => 'payrollID is missing']);
+                }
+                break;
+
+            case 'fetchEmployeeDetails':
+                if (isset($data['employeeID'])) {
+                    $stmt = $pdo->prepare("SELECT firstName, lastName, position FROM employee WHERE employeeID = ?");
+                    $stmt->execute([$data['employeeID']]);
+                    $employee = $stmt->fetch(PDO::FETCH_ASSOC);
+                    echo json_encode(['success' => $employee !== false, 'employee' => $employee ?? null, 'message' => $employee ? null : 'Employee not found.']);
+                } else {
+                    echo json_encode(['success' => false, 'message' => 'employeeID is missing']);
+                }
+                break;
+
+            case 'fetchUnavailableDates':
+                if (isset($data['employeeID'])) {
+                    $stmt = $pdo->prepare("SELECT startDate, endDate FROM payroll WHERE employeeID = ?");
+                    $stmt->execute([$data['employeeID']]);
+                    $dates = [];
+                    while ($row = $stmt->fetch(PDO::FETCH_ASSOC)) {
+                        $dates = array_merge($dates, range(strtotime($row['startDate']), strtotime($row['endDate'])));
+                    }
+                    echo json_encode(['success' => true, 'dates' => array_map(fn($date) => date('Y-m-d', $date), $dates)]);
+                } else {
+                    echo json_encode(['success' => false, 'message' => 'employeeID is missing']);
+                }
+                break;
+
+            case 'fetchHoursWorked':
+                if (isset($data['employeeID'], $data['startDate'], $data['endDate'])) {
+                    $stmt = $pdo->prepare("SELECT SUM(hoursWorked) as totalHours FROM attendance WHERE employeeID = ? AND date BETWEEN ? AND ?");
+                    $stmt->execute([$data['employeeID'], $data['startDate'], $data['endDate']]);
+                    $result = $stmt->fetch(PDO::FETCH_ASSOC);
+                    echo json_encode(['success' => $result && $result['totalHours'] !== null, 'totalHours' => $result['totalHours'] ?? null, 'message' => $result && $result['totalHours'] !== null ? null : 'No records found.']);
+                } else {
+                    echo json_encode(['success' => false, 'message' => 'Missing employeeID, startDate, or endDate']);
+                }
+                break;
+
+                if ($data['$action'] === 'generatePayslip' && isset($data['payslipData'])) {
+                    $payslip = $data['payslipData'];
+                    echo json_encode($payslip);
+                    $stmt = $pdo->prepare("INSERT INTO payroll (employeeID, startDate, endDate, hoursWorked, ratePerHour, deductions, netPay) VALUES (?, ?, ?, ?, ?, ?, ?, ?)");
+                    $success = $stmt->execute([
+                        $payslip['employeeID'], 
+                        $payslip['startPayDate'], 
+                        $payslip['endPayDate'], 
+                        $payslip['hoursWorked'], 
+                        $payslip['ratePerHour'], 
+                        $payslip['deductions'], 
+                        $payslip['netPay']
+                    ]);
+                
+                    if ($success) {
+                        echo json_encode(['success' => true]);
+                    } else {
+                        echo json_encode(['success' => false, 'message' => 'Failed to insert payslip.']);
+                    }
+                    exit;
+                }
+            case 'generatePayslip':
+                if (isset($data['payslipData'])) {
+                    $payslip = $data['payslipData'];
+
+                    try {
+                        $stmt = $pdo->prepare("INSERT INTO payroll (employeeID, startDate, endDate, hoursWorked, ratePerHour, salary, deductions, netPay, paymentDate) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)");
+                        $success = $stmt->execute([
+                            $payslip['employeeID'],
+                            $payslip['startPayDate'],
+                            $payslip['endPayDate'],
+                            $payslip['hoursWorked'],
+                            $payslip['ratePerHour'],
+                            $payslip['salary'],
+                            $payslip['deductions'],
+                            $payslip['netPay'],
+                            $payslip['paymentDate']
+                        ]);
+
+                        echo json_encode(['success' => $success, 'message' => $success ? 'Payslip generated successfully!' : 'Failed to insert payslip.']);
+
+                    } catch (PDOException $e) {
+                        echo json_encode(['success' => false, 'message' => 'Database error: ' . $e->getMessage()]);
+                    }
+
+                } else {
+                    echo json_encode(['success' => false, 'message' => 'payslipData is missing']);
+                }
+                break;
+
+            default:
+                echo json_encode(['success' => false, 'message' => 'Invalid action.']);
+        }
+        exit; // Very important: Stop further execution
+    } else {
+        echo json_encode(['success' => false, 'message' => 'No action specified']);
+        exit;
+    }
+}
+?>
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -549,10 +929,10 @@
             <div class="header-container">
                 <div id="left">
                     <h1>Employees Overview</h1>
-                    <select id="department">
-                        <option value="it">IT Department</option>
-                        <option value="hr">HR Department</option>
-                        <option value="finance">Finance Department</option>
+                    <select id="filterEmployeeDepartment">
+                        <option value="IT Department">IT Department</option>
+                        <option value="HR Department">HR Department</option>
+                        <option value="Finance Department">Finance Department</option>
                     </select>
                 </div>
                 <div id="right">
@@ -572,16 +952,7 @@
                             <th>VIEW</th>
                         </tr>
                     </thead>
-                    <tbody>
-                        <tr>
-                            <td>1</td>
-                            <td>Doe</td>
-                            <td>John</td>
-                            <td>Web Developer</td>
-                            <td>+09123456789</td>
-                            <td>Active</td>
-                            <td id="view-icon-cell"><i class="fa-solid fa-eye view-employee-icon" data-id="1" style="cursor: pointer;"></i></td>
-                        </tr>
+                    <tbody id = "employeeOverviewTable">
                     </tbody>
                 </table>
             </div>
@@ -614,9 +985,9 @@
                                 <label for="departmentFilter">&emsp; Department:</label>
                                 <select id="departmentFilter" name="department">
                                     <option value="">All Departments</option>
-                                    <option value="it">IT Department</option>
-                                    <option value="hr">HR Department</option>
-                                    <option value="finance">Finance Department</option>
+                                    <option value="IT Department">IT Department</option>
+                                    <option value="HR Department">HR Department</option>
+                                    <option value="Finance Department">Finance Department</option>
                                 </select>
                                 <i class="fa-solid fa-sync" id="filterRefreshIcon" style="cursor: pointer; margin-left: 10px;"></i>
                             </form>
@@ -635,16 +1006,26 @@
                                     <th>STATUS</th>
                                 </tr>
                             </thead>
-                            <tbody id="leaveOverviewTableBody">
-                                <tr>
-                                    <td>1</td>
-                                    <td>1</td>
-                                    <td>John Doe</td>
-                                    <td>01/06/2021</td>
-                                    <td>01/10/2021</td>
-                                    <td>Vacation</td>
-                                    <td>Pending</td>
-                                </tr>
+                            <tbody id="leaveTableBody">
+                                <?php
+                                $sql = "SELECT lr.leaveID, lr.employeeID, lr.startDate, lr.endDate, lr.leaveType, lr.leaveStatus, e.firstName, e.lastName, e.department
+                                        FROM leaverequest lr 
+                                        JOIN employee e ON lr.employeeID = e.employeeID";
+                                $stmt = $pdo->query($sql);
+                                $leaveRequests = $stmt->fetchAll();
+
+                                foreach ($leaveRequests as $request): ?>
+                                    <tr data-leave-id="<?= htmlspecialchars($request['leaveID']); ?>">
+                                        <td><?= htmlspecialchars($request['leaveID']); ?></td>
+                                        <td><?= htmlspecialchars($request['employeeID']); ?></td>
+                                        <td><?= htmlspecialchars($request['firstName'] . ' ' . $request['lastName']); ?></td>
+                                        <td><?= htmlspecialchars($request['startDate']); ?></td>
+                                        <td><?= htmlspecialchars($request['endDate']); ?></td>
+                                        <td><?= htmlspecialchars($request['leaveType']); ?></td>
+                                        <td><?= htmlspecialchars($request['leaveStatus']); ?></td>
+                                        <td class="leave-department" style="display: none;"><?= htmlspecialchars($request['department']); ?></td>
+                                    </tr>
+                                <?php endforeach; ?>
                             </tbody>
                         </table>
                     </div>
@@ -652,60 +1033,53 @@
             </div>
         </div>
 
-        <!-- Payroll Container -->
-        <div class="main hidden" id="payroll_container">
-            <div class="header-container">
-                <div id="left">
-                    <h1>Payroll Overview</h1>
-                    <select id="department">
-                        <option value="it">IT Department</option>
-                        <option value="hr">HR Department</option>
-                        <option value="finance">Finance Department</option>
-                    </select>
-                    <select id="payPeriod">
-                        <option value="jan">January</option>
-                        <option value="feb">February</option>
-                        <option value="mar">March</option>
-                        <option value="apr">April</option>
-                        <option value="may">May</option>
-                        <option value="june">June</option>
-                        <option value="july">July</option>
-                        <option value="aug">August</option>
-                        <option value="sep">September</option>
-                        <option value="oct">October</option>
-                        <option value="nov">November</option>
-                        <option value="dec">December</option>
-                    </select>
-                </div>
-                <div id="right">
-                    <i class="fa-solid fa-download" id="generate-payroll"></i>  
-                    <i class="fa-solid fa-plus" id="add_payslip"></i>            
-                </div>
+    <!-- Payroll Container -->
+    <div class="main hidden" id="payroll_container">
+        <div class="header-container">
+            <div id="left">
+                <h1>Payroll Overview</h1>
+                <select id="filterPayrollDepartment">
+                    <option value="" selected default>All Departments</option>
+                    <option value="IT Department">IT Department</option>
+                    <option value="HR Department">HR Department</option>
+                    <option value="Finance Department">Finance Department</option>
+                </select>
+                <select id="payPeriod">
+                    <option value="" selected default>- Choose Month -</option>
+                    <option value="1">January</option>
+                    <option value="2">February</option>
+                    <option value="3">March</option>
+                    <option value="4">April</option>
+                    <option value="5">May</option>
+                    <option value="6">June</option>
+                    <option value="7">July</option>
+                    <option value="8">August</option>
+                    <option value="9">September</option>
+                    <option value="10">October</option>
+                    <option value="11">November</option>
+                    <option value="12">December</option>
+                </select>
             </div>
-            <div class="container" id="payroll-table">
-                <table>
-                    <thead>
-                        <tr>
-                            <th>EMPLOYEE ID</th>
-                            <th>LAST NAME</th>
-                            <th>FIRST NAME</th>
-                            <th>DATE RECEIVED</th>
-                            <th>STATUS</th>
-                            <th>VIEW</th>
-                        </tr>
-                    </thead>
-                    <tbody id="payrollOverviewTable">
-                        <tr>
-                            <td>3</td>
-                            <td>Johnson</td>
-                            <td>Emily</td>
-                            <td>12/09/2020</td>
-                            <td>Received</td>
-                            <td id="view-icon-cell"><i class="fa-solid fa-eye view-payslip-icon" data-id="1" style="cursor: pointer;"></i></td>
-                        </tr>
-                    </tbody>
-                </table>
+            <div id="right"> 
+                <i class="fa-solid fa-plus" id="add_payslip"></i>            
             </div>
+        </div>
+        <div class="container" id="payroll-table">
+            <table>
+                <thead>
+                    <tr>
+                        <th>EMPLOYEE ID</th>
+                        <th>LAST NAME</th>
+                        <th>FIRST NAME</th>
+                        <th>DATE RECEIVED</th>
+                        <th>STATUS</th>
+                        <th>VIEW</th>
+                    </tr>
+                </thead>
+                <tbody id="payrollOverviewTable">
+
+                </tbody>
+            </table>
         </div>
     </div>
 
@@ -717,24 +1091,19 @@
             <hr>
             <form id="addEmployeeForm">
                 <label for="lastName">Last Name:</label>
-                <input type="text" id="lastName" name="lastName"><br>
+                <input type="text" id="lastName" name="lastName" required autofocus><br>
                 <label for="firstName">First Name:</label>
-                <input type="text" id="firstName" name="firstName"><br>
+                <input type="text" id="firstName" name="firstName" required><br>
                 <label for="contactInfo">Contact Information:</label>
-                <input type="text" id="contactInfo" name="contactInfo"><br>
+                <input type="text" id="contactInfo" name="contactInformation" required><br>
                 <label for="department">Department:</label>
-                <select id="department">
-                    <option value="it">IT Department</option>
-                    <option value="hr">HR Department</option>
-                    <option value="finance">Finance Department</option>
+                <select id="department" name = "department" required>
+                    <option value="IT Department">IT Department</option>
+                    <option value="HR Department">HR Department</option>
+                    <option value="Finance Department">Finance Department</option>
                 </select><br>
                 <label for="position">Position:</label>
-                <input type="text" id="position" name="position"><br>
-                <label for="status">Status:</label>
-                <select id="status" name="status">
-                    <option value="active">Active</option>
-                    <option value="onLeave">On Leave</option>
-                </select><br>
+                <input type="text" id="position" name="position" required><br>
                 <div class="form-group">
                     <button id="add-employee" class="submit" type="submit">Add Employee</button>
                 </div>
@@ -754,26 +1123,21 @@
                 <label for="editFirstName">First Name:</label>
                 <input type="text" id="editFirstName" name="firstName" readonly><br>
                 <label for="editContactInfo">Contact Information:</label>
-                <input type="text" id="editContactInfo" name="contactInfo" readonly><br>
+                <input type="text" id="editContactInfo" name="contactInformation" required><br>
                 <label for="editDepartment">Department:</label>
-                <select id="editDepartment" name="department">
-                    <option value="it">IT Department</option>
-                    <option value="hr">HR Department</option>
-                    <option value="finance">Finance Department</option>
+                <select id="editDepartment" name="department" required>
+                    <option value="IT Department">IT Department</option>
+                    <option value="HR Department">HR Department</option>
+                    <option value="Finance Department">Finance Department</option>
                 </select><br>
                 <label for="editPosition">Position:</label>
-                <input type="text" id="editPosition" name="position"><br>
-                <label for="editStatus">Status:</label>
-                <select id="editStatus" name="status">
-                    <option value="active">Active</option>
-                    <option value="onLeave">On Leave</option>
-                </select><br>
+                <input type="text" id="editPosition" name="position" required><br>
                 <div class="form-group">
                     <button id="edit-employee" class="submit" type="submit">Edit Employee</button>
                 </div>
             </form>
         </div>
-    </div>  
+    </div> 
 
     <!--View Employee Details-->
     <div id="viewEmployeeModal" class="modal">
@@ -791,7 +1155,7 @@
             <p id="viewPosition"><b>Position</b></p>
             <p id="viewStatus"><b>Status</b></p>
             <h3>Leave History</h3>
-            <table>
+            <table id = "leaveHistoryTable">
                 <thead>
                     <tr>
                         <th>Leave Type</th>
@@ -801,28 +1165,10 @@
                     </tr> 
                 </thead>
                 <tbody>
-                    <tr> 
-                        <td>Vacation</td>
-                        <td>01/06/2021</td>
-                        <td>01/10/2021</td>
-                        <td>5</td>
-                    </tr> 
-                    <tr> 
-                        <td>Vacation</td>
-                        <td>01/06/2021</td>
-                        <td>01/10/2021</td>
-                        <td>5</td>
-                    </tr> 
-                    <tr> 
-                        <td>Vacation</td>
-                        <td>01/06/2021</td>
-                        <td>01/10/2021</td>
-                        <td>5</td>
-                    </tr> 
                 </tbody>
             </table> 
             <h3>Payslip Overview</h3>
-            <table>
+            <table id = "paymentHistoryTable">
                 <thead>
                     <tr>
                         <th>Pay Period</th>
@@ -831,11 +1177,6 @@
                     </tr>
                 </thead>
                 <tbody>
-                    <tr>
-                        <td>01/01/2021 - 01/15/2021</td>
-                        <td>01/15/2021</td>
-                        <td>$5000</td>
-                    </tr>           
                 </tbody>
             </table>
         </div>
@@ -852,8 +1193,8 @@
             <p id="viewEndDate"><b>End Date</b></p>
             <p id="viewLeaveType"><b>Kind of Leave</b></p>
             <div id="reqButtons">
-                <button id="approve-leave" class="submit">Approve</button>
-                <button id="reject-leave" class="submit">Reject</button>
+                <button id="approve-leave" class="submit" data-leave-id="">Approve</button>
+                <button id="reject-leave" class="submit" data-leave-id="">Reject</button>
             </div>
         </div>
     </div>
@@ -893,23 +1234,23 @@
             <hr>
             <form>
                 <label for="employeeID">Employee ID:</label>
-                <input type="text" id="inputEmployeeID" name="employeeID"><br>
+                <input type="text" id="inputEmployeeID" name="employeeID" required autofocus><br>
                 <label for="employeeName">Employee Name:</label>
-                <input type="text" id="inputEmployeeName" name="employeeName" readonly><br>
+                <input type="text" id="inputEmployeeName" name="employeeName" readonly required><br>
                 <label for="position">Position:</label>
-                <input type="text" id="position" name="position" readonly><br>
+                <input type="text" id="positionPayslip" name="positionPayslip" readonly required><br>
                 <label for="startDate">Start Pay Date:</label>
-                <input type="date" id="startPayDate" name="startPayDate"><br>
+                <input type="date" id="startPayDate" name="startPayDate" required><br>
                 <label for="endDate">End Pay Date:</label>
-                <input type="date" id="endPayDate" name="endPayDate"><br>
+                <input type="date" id="endPayDate" name="endPayDate" required><br>
                 <label for="hoursWorked">Hour/s Worked:</label>
-                <input type="text" id="inputHoursWorked" name="hoursWorked" readonly><br>
-                <label for="payPerHour">Pay per hour:</label>
-                <input type="text" id="inputPayPerDay" name="payPerDay"><br>
+                <input type="text" id="inputHoursWorked" name="hoursWorked" readonly required><br>
+                <label for="payPerHour" required>Pay per hour:</label>
+                <input type="text" id="inputPayPerHour" name="payPerDay" required><br>
                 <label for="deduction">Deduction/s:</label>
-                <input type="text" id="inputDeduction:" name="deduction"><br>
+                <input type="text" id="inputDeduction" name="deduction" readonly required><br>
                 <label for="tax">Net Pay:</label>
-                <input type="text" id="calculateNetPay" name="netPay" readonly><br>
+                <input type="text" id="calculateNetPay" name="netPay" readonly required><br>
             </form>
             <div class="button-container">
                 <button id="generatePayslipButton" class="submit">Generate Payslip</button>
@@ -1192,8 +1533,13 @@
         var add_modal = document.getElementById("addEmployeeModal");
         var edit_modal = document.getElementById("editEmployeeModal");
         var view_modal = document.getElementById("viewEmployeeModal");
+        var add_btn = document.getElementById("add_employee");
+        var edit_btn = document.getElementById("edit_employee");
         var leave_request_modal = document.getElementById("leaveRequestModal");
         var generate_payslip_modal = document.getElementById("generatePayslipModal");
+        const departmentSelect = document.getElementById('filterEmployeeDepartment');
+        const employeeTableBody = document.getElementById('employeeOverviewTable');
+        const payrollOverviewTableBody = document.getElementById('payrollOverviewTable');
 
         var spans = document.getElementsByClassName("close");
         for (var i = 0; i < spans.length; i++) {
@@ -1214,39 +1560,270 @@
             }
         }
 
-        document.addEventListener('DOMContentLoaded', function() {
-            var viewIcons = document.querySelectorAll('.view-employee-icon');
-            viewIcons.forEach(function(icon) {
-                icon.addEventListener('click', function() {
-                    var employeeId = this.getAttribute('data-id');
-                    // Fetch employee data based on employeeId (this is just a placeholder, you need to fetch the actual data)
-                    document.getElementById('viewLastName').innerText = "Last Name: Doe"; // Replace with actual data
-                    document.getElementById('viewFirstName').innerText = "First Name: John"; // Replace with actual data
-                    document.getElementById('viewPosition').innerText = "Position: Web Developer"; // Replace with actual data
-                    document.getElementById('viewContactInfo').innerText = "Contact Information: +09123456789"; // Replace with actual data
-                    document.getElementById('viewDepartment').innerText = "Department: IT Department"; // Replace with actual data
-                    document.getElementById('viewStatus').innerText = "Status: Active"; // Replace with actual data
-                    document.getElementById('viewEmployeeModal').style.display = 'block';
+        // Function to populate the table dynamically
+        function populateEmployeeTable(departmentFilter = null) {
+            fetch('finalindex.php?action=getEmployees')
+                .then(response => response.json())
+                .then(data => {
+                    // Clear existing rows
+                    employeeTableBody.innerHTML = '';
+
+                    // Filter data based on selected department, if any
+                    const filteredData = departmentFilter
+                        ? data.filter(employee => employee.department === departmentFilter)
+                        : data;
+
+                    // Populate the table
+                    filteredData.forEach(employee => {
+                        const row = document.createElement('tr');
+                        row.setAttribute('data-department', employee.department);
+
+                        row.innerHTML = `
+                            <td>${employee.employeeID}</td>
+                            <td>${employee.lastName}</td>
+                            <td>${employee.firstName}</td>
+                            <td>${employee.position}</td>
+                            <td>${employee.contactInformation}</td>
+                            <td>${employee.status}</td>
+                            <td id="view-icon-cell">
+                                <i class="fa-solid fa-eye view-employee-icon" data-id="${employee.employeeID}" style="cursor: pointer;"></i>
+                            </td>
+                        `;
+                        employeeTableBody.appendChild(row);
+                    });
+                    attachViewEmployeeListeners();
+                })
+                .catch(error => {
+                    console.error('Error fetching employee data:', error);
                 });
+        }
+
+        populateEmployeeTable(departmentSelect.value);
+
+        departmentSelect.addEventListener('change', function () {
+            populateEmployeeTable(departmentSelect.value);
+        });
+
+        function attachViewEmployeeListeners() {
+            document.querySelectorAll(".view-employee-icon").forEach(function (icon) {
+                icon.addEventListener("click", function (event) {
+                    event.preventDefault();
+                    var employeeId = this.getAttribute("data-id");
+                    console.log(employeeId);
+
+                    // Fetch combined employee data
+                    fetch(`finalindex.php?fetchEmployeeData=true&employeeID=${employeeId}`)
+                        .then((response) => response.json())
+                        .then((data) => {
+                            if (data.success) {
+                                // Populate employee details
+                                var details = data.employeeDetails;
+                                var status = data.employeeStatus;
+                                edit_btn.value = employeeId;
+                                document.getElementById("viewLastName").innerText = "Last Name: " + details.lastName;
+                                document.getElementById("viewFirstName").innerText = "First Name: " + details.firstName;
+                                document.getElementById("viewContactInfo").innerText = "Contact Information: " + details.contactInformation;
+                                document.getElementById("viewDepartment").innerText = "Department: " + details.department;
+                                document.getElementById("viewPosition").innerText = "Position: " + details.position;
+                                document.getElementById("viewStatus").innerText = "Status: " + status.status;
+
+                                // Populate leave history
+                                var leaveTbody = document.querySelector("#leaveHistoryTable tbody");
+                                leaveTbody.innerHTML = ""; // Clear previous rows
+                                data.leaveHistory.forEach(function (leave) {
+                                    var row = `
+                                        <tr>
+                                            <td>${leave.leaveType}</td>
+                                            <td>${leave.startDate}</td>
+                                            <td>${leave.endDate}</td>
+                                            <td>${leave.days}</td>
+                                        </tr>
+                                    `;
+                                    leaveTbody.innerHTML += row;
+                                });
+
+                                // Populate payment history
+                                var paymentTbody = document.querySelector("#paymentHistoryTable tbody");
+                                paymentTbody.innerHTML = ""; // Clear previous rows
+                                data.paymentHistory.forEach(function (payment) {
+                                    var row = `
+                                        <tr>
+                                            <td>${payment.startDate} - ${payment.endDate}</td>
+                                            <td>${payment.paymentDate}</td>
+                                            <td>$${payment.netPay}</td>
+                                        </tr>
+                                    `;
+                                    paymentTbody.innerHTML += row;
+                                });
+                            } else {
+                                alert(data.message || "Could not fetch employee data.");
+                            }
+                        })
+                        .catch((error) => {
+                            console.error("Error fetching employee data:", error);
+                        });
+
+                        // Show the modal
+                        document.getElementById("viewEmployeeModal").style.display = "block";
+                    });
+                });
+            };
+
+        document.getElementById('addEmployeeForm').addEventListener('submit', function (event) {
+            // Prevent default form submission
+            event.preventDefault();
+
+            // Gather form data
+            const lastName = document.getElementById('lastName').value.trim();
+            const firstName = document.getElementById('firstName').value.trim();
+            const contactInfo = document.getElementById('contactInfo').value.trim();
+            const department = document.getElementById('department').value.trim();
+            const position = document.getElementById('position').value.trim();
+
+            // Validate inputs (same logic as before)
+            if (!/^[a-zA-Z\s]+$/.test(lastName)) {
+                alert('Last Name must only contain letters and spaces.');
+                return;
+            }
+            if (!/^[a-zA-Z\s]+$/.test(firstName)) {
+                alert('First Name must only contain letters and spaces.');
+                return;
+            }
+            if (position === '') {
+                alert('Position is required.');
+                return;
+            }
+
+            // Send data to the server
+            fetch('finalindex.php?action=addEmployee', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    lastName,
+                    firstName,
+                    contactInformation: contactInfo,
+                    department,
+                    position,
+                }),
+            })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        alert('Employee added successfully!');
+
+                        // Close the modal
+                        document.getElementById('addEmployeeModal').style.display = 'none';
+                        // Re-populate the table with the current filter applied
+                        populateEmployeeTable(departmentSelect.value);
+                    } else {
+                        alert(data.message || 'Failed to add employee.');
+                    }
+                })
+                .catch(error => {
+                    console.error('Error adding employee:', error);
+                });
+        });
+
+        add_btn.onclick = function() {
+            add_modal.style.display = "block";
+        }
+
+        edit_btn.onclick = function() {
+            // Get current employee details from the View Employee Modal
+            const firstName = document.getElementById("viewFirstName").innerText.split(": ")[1];
+            const lastName = document.getElementById("viewLastName").innerText.split(": ")[1];
+            const contactInfo = document.getElementById("viewContactInfo").innerText.split(": ")[1];
+            const department = document.getElementById("viewDepartment").innerText.split(": ")[1];
+            const position = document.getElementById("viewPosition").innerText.split(": ")[1];
+            const status = document.getElementById("viewStatus").innerText.split(": ")[1];
+
+            document.getElementById("editFirstName").value = firstName;
+            document.getElementById("editLastName").value = lastName;
+            document.getElementById("editContactInfo").value = contactInfo;
+            document.getElementById("editPosition").value = position;
+            const departmentDropdown = document.getElementById("editDepartment");
+            departmentDropdown.innerHTML = ""; // Clear existing options
+            const departments = ["Finance Department", "IT Department", "HR Department"]; // Example departments
+            departments.forEach((dept) => {
+                const option = document.createElement("option");
+                option.value = dept;
+                option.textContent = dept;
+                if (dept === department) {
+                    option.selected = true; // Mark the current department as selected
+                }
+                departmentDropdown.appendChild(option);
             });
+            departmentDropdown.value = department;
 
-            var add_btn = document.getElementById("add_employee");
-            var edit_btn = document.getElementById("edit_employee");
+            edit_modal.style.display = "block";
+            view_modal.style.display = "none";
+        }
 
-            add_btn.onclick = function() {
-                add_modal.style.display = "block";
+        document.getElementById("editEmployeeForm").addEventListener("submit", function (event) {
+            event.preventDefault(); // Prevent form submission from reloading the page
+
+            const employeeId = edit_btn.value;
+            const contactInfo = document.getElementById("editContactInfo").value.trim();
+            const department = document.getElementById("editDepartment").value.trim();
+            const position = document.getElementById("editPosition").value.trim();
+            if (position === '') {
+                alert('Position is required.');
+                return;
             }
 
-            edit_btn.onclick = function() {
-                document.getElementById("editLastName").value = "Doe"; // Replace with actual data
-                document.getElementById("editFirstName").value = "John"; // Replace with actual data
-                document.getElementById("editContactInfo").value = "+09123456789"; // Replace with actual data
-                document.getElementById("editDepartment").value = "it"; // Replace with actual data
-                document.getElementById("editPosition").value = "Web Developer"; // Replace with actual data
-                document.getElementById("editStatus").value = "Active"; // Replace with actual data
-                edit_modal.style.display = "block";
-                view_modal.style.display = "none";
-            }
+            fetch("finalindex.php?editEmployee=true", {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/json",
+                },
+                body: JSON.stringify({
+                    employeeID: employeeId,
+                    contactInformation: contactInfo,
+                    department: department,
+                    position: position,
+                }),
+            })
+                .then((response) => response.json())
+                .then((data) => {
+                    if (data.success) {
+                        alert("Employee details updated successfully!");
+
+                        // Update the View Employee Modal with the new values
+                        document.getElementById("viewContactInfo").innerText = "Contact Information: " + contactInfo;
+                        document.getElementById("viewDepartment").innerText = "Department: " + department;
+                        document.getElementById("viewPosition").innerText = "Position: " + position;
+
+                        // Update the Employee Table
+                        const employeeRow = document.querySelector(`.view-employee-icon[data-id='${employeeId}']`).closest("tr");
+                        if (!employeeRow) {
+                            console.error(`No element found for data-id="${employeeId}"`);
+                        }
+                        if (employeeRow) {
+                            employeeRow.cells[3].innerText = position;        // Update position cell
+                            employeeRow.cells[4].innerText = contactInfo;    // Update contact information cell
+                            employeeRow.setAttribute("data-department", department); // Update the row's department
+                        }
+
+                        // Reapply the filter to ensure consistency
+                        const selectedDepartment = document.getElementById("department").value;
+                        if (employeeRow.getAttribute("data-department") === selectedDepartment) {
+                            employeeRow.style.display = ""; // Show row if it matches the filter
+                        } else {
+                            employeeRow.style.display = "none"; // Hide row if it doesn't match the filter
+                        }
+
+                        // Close the Edit Modal and reopen the View Modal
+                        document.getElementById("editEmployeeModal").style.display = "none";
+                        document.getElementById("viewEmployeeModal").style.display = "block";
+                    } else {
+                        alert(data.message || "Failed to update employee details.");
+                    }
+                })
+                .catch((error) => {
+                    console.error("Error updating employee details:", error);
+                });
         });
 
         // Sorting the incoming leave requests
@@ -1276,10 +1853,13 @@
             sortAscending = !sortAscending; 
         });
 
-        // Function to add a leave request to the incoming leaves list
-        function addLeaveRequest(employeeName, startDate, endDate, leaveType) {
+        const incomingLeaves = <?php echo json_encode($incomingLeaves); ?>;
+
+        // Function to add leave requests dynamically
+        function addLeaveRequest(leaveID, employeeName, startDate, endDate, leaveType) {
             var leaveRequestDiv = document.createElement("div");
             leaveRequestDiv.className = "leave-request";
+            leaveRequestDiv.setAttribute("data-leave-id", leaveID);
             leaveRequestDiv.innerHTML = `
                 <p><b>Employee Name:</b> ${employeeName}</p>
                 <p class="start-date"><b>Start Date:</b> ${startDate}</p>
@@ -1291,30 +1871,70 @@
                 document.getElementById("viewStartDate").innerText = "Start Date: " + startDate;
                 document.getElementById("viewEndDate").innerText = "End Date: " + endDate;
                 document.getElementById("viewLeaveType").innerText = "Kind of Leave: " + leaveType;
+                document.getElementById("approve-leave").setAttribute("data-leave-id", leaveID);
+                document.getElementById("reject-leave").setAttribute("data-leave-id", leaveID);
                 leave_request_modal.style.display = "block";
             };
             document.getElementById("incoming-leaves-list").appendChild(leaveRequestDiv);
         }
 
-        // Example usage
-        addLeaveRequest("John Doe", "2021-03-06", "2021-03-10", "Vacation Leave");
-        addLeaveRequest("Jane Smith", "2021-02-06", "2021-02-10", "Sick Leave");
-        addLeaveRequest("Alice Johnson", "2024-12-30", "2025-01-03", "Vacation Leave");
+        // Populate leave requests
+        incomingLeaves.forEach(leave => {
+            addLeaveRequest(leave.leaveID, leave.employeeName, leave.startDate, leave.endDate, leave.leaveType);
+        });
 
-        var approve_leave = document.getElementById("approve-leave");
-        var reject_leave = document.getElementById("reject-leave");
+        function updateLeaveStatus(leaveID, leaveStatus) {
+            const formData = new FormData();
+            formData.append("leaveID", leaveID);
+            formData.append("leaveStatus", leaveStatus);
 
-        // Add function to approve leave request
-        approve_leave.onclick = function() {
-            alert("Leave request approved!");
-            leave_request_modal.style.display = "none";
+            fetch("finalindex.php", {
+                method: "POST",
+                body: formData,
+            })
+                .then((response) => response.json())
+                .then((data) => {
+                    if (data.success) {
+                        // Remove leave request from the "incoming-leaves-list"
+                        const leaveRequestDiv = document.querySelector(`.leave-request[data-leave-id="${leaveID}"]`);
+                        if (leaveRequestDiv) {
+                            leaveRequestDiv.remove();
+                        }
+
+                        // Update the leave status in the leave-table
+                        const leaveTableRow = document.querySelector(`#leaveTableBody tr[data-leave-id="${leaveID}"]`);
+                        if (leaveTableRow) {
+                            const statusCell = leaveTableRow.cells[6]; // Assuming "STATUS" is the 7th column
+                            if (statusCell) {
+                                statusCell.textContent = leaveStatus;
+                            }
+                        }
+
+                        alert(`Leave request ${leaveStatus.toLowerCase()}!`);
+                    } else {
+                        alert(`Failed to update leave status: ${data.message}`);
+                    }
+                })
+                .catch((error) => {
+                    console.error("Error:", error);
+                    alert("An error occurred while updating leave status.");
+                });
         }
 
-        // Add function to reject leave request
-        reject_leave.onclick = function() {
-            alert("Leave request rejected!");
-            leave_request_modal.style.display = "none";
-        }
+        const approveButton = document.getElementById("approve-leave");
+        const rejectButton = document.getElementById("reject-leave");
+
+        approveButton.onclick = function () {
+            const leaveID = this.getAttribute("data-leave-id");
+            updateLeaveStatus(leaveID, "Approved");
+            document.getElementById("leaveRequestModal").style.display = "none";
+        };
+
+        rejectButton.onclick = function () {
+            const leaveID = this.getAttribute("data-leave-id");
+            updateLeaveStatus(leaveID, "Rejected");
+            document.getElementById("leaveRequestModal").style.display = "none";
+        };
 
         // Filters leave overview in main table and leave report
         function filterLeaveOverview() {
@@ -1322,13 +1942,13 @@
             var endDate = document.getElementById('endDate').value;
             var department = document.getElementById('departmentFilter').value;
 
-            var rows = document.querySelectorAll('#leaveOverviewTableBody tr');
+            var rows = document.querySelectorAll('#leaveTableBody tr');
             var filteredRows = [];
 
             rows.forEach(function(row) {
                 var rowStartDate = new Date(row.cells[2].innerText);
                 var rowEndDate = new Date(row.cells[3].innerText);
-                var rowDepartment = row.cells[4].innerText;
+                var rowDepartment = row.querySelector('.leave-department')?.innerText.trim();
 
                 var showRow = true;
 
@@ -1373,6 +1993,301 @@
 
             var leaveOverviewModal = document.getElementById('leaveOverviewModal');
             leaveOverviewModal.style.display = 'block';
+        });
+
+        function populatePayrollTable(departmentFilter = null){
+            fetch('finalindex.php?action=getPayslips')
+                .then(response => response.json())
+                .then(data => {
+                    // Clear existing rows
+                    payrollOverviewTableBody.innerHTML = '';
+
+                    // Filter data based on selected department, if any
+                    const filteredData = departmentFilter
+                        ? data.filter(payslip => payslip.department === departmentFilter )
+                        : data;
+
+                    // Populate the table
+                    filteredData.forEach(payslip => {
+                        const row = document.createElement('tr');
+                        row.setAttribute('data-department', payslip.department);
+                        row.innerHTML = `
+                            <td>${payslip.employeeID}</td>
+                            <td>${payslip.lastName}</td>
+                            <td>${payslip.firstName}</td>
+                            <td>${payslip.paymentDate}</td>
+                            <td class="payroll-department" style="display: none;">${payslip.department}</td>
+                            <td>Received</td>
+                            <td id="view-icon-cell">
+                                <i class="fa-solid fa-eye view-payslip-icon" data-payslip-id="${payslip.payrollID}" style="cursor: pointer;"></i>
+                            </td>
+                        `;
+                        payrollOverviewTableBody.appendChild(row);
+                    });
+                    attachViewPayslipListeners();
+                })
+                .catch(error => {
+                    console.error('Error fetching employee data:', error);
+                });
+        }
+
+        populatePayrollTable();
+
+        function attachViewPayslipListeners() {
+            document.querySelectorAll(".view-payslip-icon").forEach(function (icon) {
+                icon.addEventListener("click", function (event) {
+                    var payslip_id = icon.getAttribute('data-payslip-id'); // Get the payslip ID from the data attribute
+                    // Fetch payslip data from the server using AJAX
+                    fetch('finalindex.php', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ action: 'fetchPayslipDetails', payrollID: payslip_id }) // Send the payslipID to the backend
+                    })
+                    .then(response => response.json()) // Parse the response as JSON
+                    .then(data => {
+                        if (data.success) {
+                            // Update the modal with fetched payslip details
+                            document.getElementById('viewPayslipID').innerText = `Payslip ID: ${data.payslip.payrollID}`;
+                            document.getElementById('viewPayDate').innerText = `Pay Date: ${data.payslip.paymentDate}`;
+                            document.getElementById('viewPayPeriod').innerText = `Pay Period: ${data.payslip.startDate} - ${data.payslip.endDate}`;
+
+                            // Update the payroll breakdown table
+                            document.querySelector('#PayslipOverviewModal table tbody').innerHTML = `
+                                <tr>
+                                    <td>Hours Worked: ${data.payslip.hoursWorked} hours<br>
+                                        Pay per Hour: $${data.payslip.ratePerHour}<br>
+                                        Deductions: $${data.payslip.deductions}</td>
+                                </tr>
+                                <tr>
+                                    <td id="netPay">Net Pay: $${data.payslip.netPay}</td>
+                                </tr>
+                            `;
+
+                            // Show the modal
+                            document.getElementById('PayslipOverviewModal').style.display = 'block';
+                        } else {
+                            alert('Failed to fetch payslip details: ' + data.message); // Show error message
+                        }
+                    })
+                    .catch(error => {
+                        console.error('Error fetching payslip details:', error);
+                        alert('An error occurred while fetching payslip details.');
+                    });
+                    });
+                });
+            };
+
+        function filterPayrollTable() {
+            var selectedDepartment = document.getElementById('filterPayrollDepartment').value;
+            var selectedPayPeriod = document.getElementById('payPeriod').value;
+
+            var rows = document.querySelectorAll('#payrollOverviewTable tr');
+            var filteredRows = [];
+
+            rows.forEach(function(row) {
+                var rowPayPeriod = row.cells[3].innerText.split('-'); // Assuming pay period is in the 4th column
+                var rowDepartment = row.querySelector('.payroll-department')?.innerText.trim();
+                var monthEntry = parseInt(rowPayPeriod[1]);
+                var showRow = true;
+
+                if (selectedDepartment && rowDepartment !== selectedDepartment) {
+                    showRow = false;
+                }
+                if (selectedPayPeriod && (monthEntry != parseInt(selectedPayPeriod))) {
+                    showRow = false;
+                    console.log(monthEntry + ' is not ' + selectedPayPeriod);
+                }
+
+                if (showRow) {
+                    row.style.display = '';
+                    filteredRows.push(row.cloneNode(true));
+                } else {
+                    row.style.display = 'none';
+                }
+            });
+
+            return filteredRows;
+        }
+
+        document.getElementById('filterPayrollDepartment').addEventListener('change', filterPayrollTable);
+        document.getElementById('payPeriod').addEventListener('change', filterPayrollTable);
+
+        const inputEmployeeID = document.getElementById('inputEmployeeID');
+        const inputEmployeeName = document.getElementById('inputEmployeeName');
+        const position = document.getElementById('positionPayslip');
+        const startPayDate = document.getElementById('startPayDate');
+        const endPayDate = document.getElementById('endPayDate');
+        const inputHoursWorked = document.getElementById('inputHoursWorked');
+        const inputPayPerHour = document.getElementById('inputPayPerHour');
+        const inputDeduction = document.getElementById('inputDeduction');
+        const calculateNetPay = document.getElementById('calculateNetPay');
+        const generatePayslipButton = document.getElementById('generatePayslipButton');
+        const generatePayslipModal = document.getElementById('generatePayslipModal');
+        const addPayslipButton = document.getElementById('add_payslip');
+
+        // Show Generate Payslip Modal
+        addPayslipButton.onclick = function () {
+            generatePayslipModal.style.display = 'block';
+        };
+
+        // Close Modal Logic
+        document.querySelector('#generatePayslipModal .close').onclick = function () {
+            generatePayslipModal.style.display = 'none';
+        };
+
+        // Fetch Employee Details when Employee ID loses focus
+        inputEmployeeID.addEventListener('blur', function () {
+            const employeeID = inputEmployeeID.value.trim();
+            if (employeeID) {
+                fetch('finalindex.php', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ action: 'fetchEmployeeDetails', employeeID })
+                })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        inputEmployeeName.value = `${data.employee.firstName} ${data.employee.lastName}`;
+                        position.value = data.employee.position;
+                                        
+                        disableUnavailableDates(inputEmployeeID.value);
+                    } else {
+                        alert('Employee not found!');
+                    }
+                })
+                .catch(error => console.error('Error fetching employee details:', error));
+            }
+        });
+
+        // Disable unavailable dates in the date picker
+        function disableUnavailableDates(employeeID) {
+            fetch('finalindex.php', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ action: 'fetchUnavailableDates', employeeID })
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    const unavailableDates = data.dates; // Array of dates
+                    startPayDate.addEventListener('input', function () {
+                        const startDate = new Date(startPayDate.value);
+                        const isUnavailable = unavailableDates.some(date => new Date(date) >= startDate);
+                        if (isUnavailable) {
+                            alert('The selected start date is already covered by a previous payslip.');
+                            startPayDate.value = '';
+                        }
+                    });
+
+                    endPayDate.addEventListener('input', function () {
+                        const endDate = new Date(endPayDate.value);
+                        const isUnavailable = unavailableDates.some(date => new Date(date) >= endDate);
+                        if (isUnavailable) {
+                            alert('The selected end date is already covered by a previous payslip.');
+                            endPayDate.value = '';
+                        }
+                    });
+                }
+            })
+            .catch(error => console.error('Error fetching unavailable dates:', error));
+        }
+
+        // When valid dates are entered, calculate hours worked
+        function calculateHoursWorked(employeeID, startDate, endDate) {
+            fetch('finalindex.php', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ action: 'fetchHoursWorked', employeeID, startDate, endDate })
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    inputHoursWorked.value = data.totalHours;
+                } else {
+                    inputHoursWorked.value = 0;
+                    alert('No attendance records found for the selected range.');
+                }
+            })
+            .catch(error => console.error('Error fetching hours worked:', error));
+        }
+
+        [startPayDate, endPayDate].forEach(input => {
+            input.addEventListener('change', function () {
+                const employeeID = inputEmployeeID.value.trim();
+                if (employeeID && startPayDate.value && endPayDate.value) {
+                    calculateHoursWorked(employeeID, startPayDate.value, endPayDate.value);
+                }
+            });
+        });
+
+        var grossPay = 0;
+        // Calculate Gross Pay, Deductions, and Net Pay
+        inputPayPerHour.addEventListener('input', function () {
+            const ratePerHour = parseFloat(inputPayPerHour.value);
+            const hoursWorked = parseFloat(inputHoursWorked.value);
+            if (!isNaN(ratePerHour) && !isNaN(hoursWorked)) {
+                grossPay = ratePerHour * hoursWorked;
+                const deduction = grossPay * 0.15; // 15% deductions
+                const netPay = grossPay - deduction;
+
+                inputDeduction.value = deduction.toFixed(2);
+                calculateNetPay.value = netPay.toFixed(2);
+            }
+        });
+
+        // Generate Payslip
+        generatePayslipButton.addEventListener('click', function () {
+            const today = new Date();
+            const year = today.getFullYear();
+            const month = String(today.getMonth() + 1).padStart(2, '0'); // Month is 0-indexed
+            const day = String(today.getDate()).padStart(2, '0');
+            const formattedDate = `${year}-${month}-${day}`;
+
+            // Validate form inputs
+            const form = document.querySelector('#generatePayslipModal form');
+            if (!form.checkValidity()) {
+                alert('Please fill out all required fields.');
+                return;
+            }
+
+            // Pay Per Hour should only be numerical values
+            if (!/^\d+(?:\.\d{1,2})?$/.test(inputPayPerHour.value.trim())) {
+                alert('Pay Per Hour should be a numerical value with optional decimal points.');
+                return;
+            }
+
+            const payslipData = {
+                employeeID: inputEmployeeID.value.trim(),
+                startPayDate: startPayDate.value,
+                endPayDate: endPayDate.value,
+                hoursWorked: inputHoursWorked.value,
+                ratePerHour: inputPayPerHour.value.trim(),
+                salary: grossPay,
+                deductions: inputDeduction.value,
+                netPay: calculateNetPay.value,
+                paymentDate: formattedDate
+            };
+
+            fetch('finalindex.php', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ action: 'generatePayslip', payslipData })
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    alert('Payslip generated successfully!');
+                    // Close modal and clear form
+                    generatePayslipModal.style.display = 'none';
+                    document.querySelector('#generatePayslipModal form').reset();
+                    populatePayrollTable();
+                    document.getElementById('filterPayrollDepartment').value = "";
+                    document.getElementById('payPeriod').value = "";
+                } else {
+                    alert('Failed to generate payslip: ' + data.message);
+                }
+            })
+            .catch(error => console.error('Error generating payslip:', error));
         });
 
         // Generate Payslip
