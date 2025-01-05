@@ -380,12 +380,13 @@
                     }
             
                     $stmt = $pdo->prepare("
-                        INSERT INTO employee (lastName, firstName, contactInformation, department, position)
-                        VALUES (:lastName, :firstName, :contactInformation, :department, :position)
+                        INSERT INTO employee (lastName, firstName, contactInformation, department, leaveBalance, position)
+                        VALUES (:lastName, :firstName, :contactInformation, :department, :leaveBalance, :position)
                     ");
                     $stmt->execute([
                         ':lastName' => $lastName,
                         ':firstName' => $firstName,
+                        ':leaveBalance' => 10,
                         ':contactInformation' => $contactInformation,
                         ':department' => $department,
                         ':position' => $position,
@@ -1111,6 +1112,7 @@
             </table>
         </div>
     </div>
+</div>
 
     <!-- Add Employee Modal -->
     <div id="addEmployeeModal" class="modal">
@@ -1525,6 +1527,8 @@
                 </div>
             </div>
         </div>
+    </div>
+
 
         <div id="confirmLeaveModal" class="modal">
             <div class="modal-content" id="confirm-leave">
