@@ -2,9 +2,9 @@
     // Database connection parameters
     $host = 'localhost'; // Hostname or IP address
     $db = 'u415861906_infosec2222'; // Database name
-    $user = 'Jerico'; // MySQL username
-    $port = 3308;
-    $pass = '12182003'; // MySQL password
+    $user = 'root'; // MySQL username
+    $port = 3307;
+    $pass = ''; // MySQL password
     $charset = 'utf8mb4'; // Character set (optional but recommended)
 
     try {
@@ -25,6 +25,30 @@
         // Handle connection errors
         echo "Connection failed: " . $e->getMessage();
         exit; // Stop further execution if connection fails
+    }
+    
+
+      // login
+      if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+        $username = $_POST['username'] ?? '';
+        $password = $_POST['password'] ?? '';
+
+        // Fetch user credentials
+        $stmt = $pdo->prepare("
+            SELECT uc.username, uc.password, e.department
+            FROM UserCredentials uc
+            JOIN employee e ON uc.employeeID = e.employeeID
+            WHERE uc.username = :username
+        ");
+        $stmt->execute(['username' => $username]);
+        $user = $stmt->fetch();
+
+        if ($user && $user['password'] === $password) {
+            echo json_encode(['success' => true, 'department' => $user['department']]);
+        } else {
+            echo json_encode(['success' => false, 'message' => 'Invalid username or password']);
+        }
+        exit;
     }
     
     // EMPLOYEE SIDE // 
@@ -2486,32 +2510,48 @@
 
         // LOG IN //
 
-        document.addEventListener('DOMContentLoaded', function() {
-            const loginButton = document.querySelector('.login-form button');
-            const userIcon = document.getElementById('userIcon');
-            const loginContainer = document.getElementById('login');
-            const hrMainContainer = document.getElementById('hr_main');
-            const employeeMainContainer = document.getElementById('employee_main');
+        document.addEventListener('DOMContentLoaded', function () {
+        const loginButton = document.querySelector('.login-form button');
+        const loginContainer = document.getElementById('login');
+        const hrMainContainer = document.getElementById('hr_main');
+        const employeeMainContainer = document.getElementById('employee_main');
 
-            loginButton.addEventListener('click', function(event) {
-                event.preventDefault();
-                if (document.getElementById('username').value === 'hr' && document.getElementById('password').value === 'hr') {
-                    loginContainer.classList.add('hidden');
-                    hrMainContainer.classList.remove('hidden');
-                } else if (document.getElementById('username').value === 'employee' && document.getElementById('password').value === 'employee') {
-                    loginContainer.classList.add('hidden');
-                    employeeMainContainer.classList.remove('hidden');
+        loginButton.addEventListener('click', function (event) {
+            event.preventDefault();
+
+            const username = document.getElementById('username').value;
+            const password = document.getElementById('password').value;
+
+            // Send login data to the server
+            fetch('http://localhost/workflow2Copy/index.php', { // use URL, not file path
+                method: 'POST',
+                headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+                body: new URLSearchParams({ username, password })
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    if (data.department === 'HR Department') {
+                        loginContainer.classList.add('hidden');
+                        hrMainContainer.classList.remove('hidden');
+                    } else if (data.department === 'IT Department' || data.department === 'Finance Department') {
+                        loginContainer.classList.add('hidden');
+                        employeeMainContainer.classList.remove('hidden');
+                    }
                 } else {
-                    alert('Invalid username or password');
+                    alert(data.message);
                 }
+            })
+            .catch(error => {
+                console.error('Error:', error);
             });
-
             userIcon.addEventListener('click', function() {
-                hrMainContainer.classList.add('hidden');
-                employeeMainContainer.classList.add('hidden');
-                loginContainer.classList.remove('hidden');
-            });
+                    hrMainContainer.classList.add('hidden');
+                    employeeMainContainer.classList.add('hidden');
+                    loginContainer.classList.remove('hidden');
+                });
         });
+    });
 
         // EMPLOYEE SIDE // 
 
