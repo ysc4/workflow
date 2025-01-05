@@ -31,44 +31,60 @@
     if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['action'] === 'login') {
         $username = $_POST['username'] ?? '';
         $password = $_POST['password'] ?? '';
-    
+
         // Validate inputs
         if (empty($username) || empty($password)) {
             echo json_encode(['success' => false, 'message' => 'Username and password are required.']);
             exit;
         }
-    
+
         // Fetch user credentials from the database
         $stmt = $pdo->prepare("SELECT uc.username, uc.password, e.department, e.employeeID
-                               FROM UserCredentials uc
-                               JOIN employee e ON uc.employeeID = e.employeeID
-                               WHERE uc.username = :username");
+                            FROM UserCredentials uc
+                            JOIN employee e ON uc.employeeID = e.employeeID
+                            WHERE uc.username = :username");
         $stmt->execute(['username' => $username]);
         $user = $stmt->fetch();
-    
+
         if ($user) {
             // Compare the plain text password directly
             if ($password === $user['password']) {
+                // Insert the time-in record in the attendance table
+                $timeInStmt = $pdo->prepare("INSERT INTO attendance (employeeID, TimeIn, date) 
+                                            VALUES (:employeeID, CURRENT_TIMESTAMP, CURDATE())");
+                $timeInStmt->execute(['employeeID' => $user['employeeID']]);
+
                 echo json_encode([
                     'success' => true,
                     'employeeID' => $user['employeeID'],
                     'department' => $user['department']
                 ]);
+                } else {
+                    // Password mismatch
+                    echo json_encode(['success' => false, 'message' => 'Invalid username or password']);
+                }
             } else {
-                // Password mismatch
+                // User not found
                 echo json_encode(['success' => false, 'message' => 'Invalid username or password']);
             }
-        } else {
-            // User not found
-            echo json_encode(['success' => false, 'message' => 'Invalid username or password']);
+
+            exit;
         }
-    
-        exit;
-    }
+
+    // Retrieve the employeeID of the last person who logged in
+    $stmt = $pdo->prepare("SELECT employeeID 
+    FROM attendance 
+    ORDER BY attendanceID DESC 
+    LIMIT 1");
+    $stmt->execute();
+
+    // Fetch the result
+    $lastLoggedIn = $stmt->fetch();    
+
 
     // EMPLOYEE SIDE
     // Fetch employee information from the database
-    $selectedEmployeeID = 8; // Example employee ID, you can dynamically set this
+    $selectedEmployeeID = $lastLoggedIn['employeeID']; // Example employee ID, you can dynamically set this
     $query = "SELECT * FROM employee WHERE employeeID = :selectedEmployeeID";
     $statement = $pdo->prepare($query);
     $statement->execute(['selectedEmployeeID' => $selectedEmployeeID]);
@@ -1616,6 +1632,7 @@
             <h2>Leave History</h2>
                 <table>
                     <thead>
+                        <th>LEAVE ID</th>
                         <th>START DATE</th>
                         <th>END DATE</th>
                         <th>LEAVE TYPE</th>
@@ -1625,6 +1642,7 @@
                     </thead>
                     <tbody>
                         <tr>
+                            <td>1</td>
                             <td>01/09/2025</td>
                             <td>01/10/2025</td>
                             <td>Vacation</td>
@@ -2664,39 +2682,36 @@
             headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
             body: new URLSearchParams({ action: 'login', username, password })
         })
-        .then(response => response.json())
-        .then(data => {
-            console.log('Login response:', data); // Debugging the response
-            if (data.success) {
-                loginContainer.classList.add('hidden');
-                if (data.department === 'HR Department') {
-                    hrMainContainer.classList.remove('hidden');
-                    console.log('HR department: showing HR main container');
-                } else if (data.department === 'IT Department' || data.department === 'Finance Department') {
-                    employeeMainContainer.classList.remove('hidden');
-                    console.log('Employee department: showing employee main container');
-                } else {
-                    console.log('Unknown department:', data.department);
-                }
-            } else {
-                alert(data.message);
-            }
-        })
-        .catch(error => {
-            console.error('Error:', error);
+                .then(response => response.json())
+                .then(data => {
+                    console.log('Login response:', data); // Debugging the response
+                    if (data.success) {
+                        loginContainer.classList.add('hidden');
+                        if (data.department === 'HR Department') {
+                            hrMainContainer.classList.remove('hidden');
+                            console.log('HR department: showing HR main container');
+                        } else if (data.department === 'IT Department' || data.department === 'Finance Department') {
+                            employeeMainContainer.classList.remove('hidden');
+                            console.log('Employee department: showing employee main container');
+                        } else {
+                            console.log('Unknown department:', data.department);
+                        }
+                    } else {
+                        alert(data.message);
+                    }
+                })
+                .catch(error => {
+                    console.error('Error:', error);
+                });
+            });
+
+            // Logout functionality
+            userIcon.addEventListener('click', function() {
+                hrMainContainer.classList.add('hidden');
+                employeeMainContainer.classList.add('hidden');
+                loginContainer.classList.remove('hidden');
+            });
         });
-    });
-
-    // Logout functionality
-    userIcon.addEventListener('click', function() {
-        hrMainContainer.classList.add('hidden');
-        employeeMainContainer.classList.add('hidden');
-        loginContainer.classList.remove('hidden');
-    });
-});
-
-
-
 
     </script>
     </body>
