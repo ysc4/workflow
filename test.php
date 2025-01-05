@@ -31,7 +31,6 @@
     
 
     // HR SIDE
-    
     if ($_SERVER['REQUEST_METHOD'] === 'GET' && isset($_GET['action']) && $_GET['action'] === 'getEmployees') {
         header('Content-Type: application/json');
     
