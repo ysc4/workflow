@@ -50,8 +50,9 @@
             // Compare the plain text password directly
             if ($password === $user['password']) {
                 // Insert the time-in record in the attendance table
-                $timeInStmt = $pdo->prepare("INSERT INTO attendance (employeeID, TimeIn, date) 
-                                            VALUES (:employeeID, CURRENT_TIMESTAMP, CURDATE())");
+                $timeInStmt = $pdo->prepare("INSERT INTO attendance (employeeID, TimeIn, TimeOut, date, hoursWorked) 
+                            VALUES (:employeeID, CURRENT_TIMESTAMP, '17:00:00', CURDATE(), 
+                            TIMESTAMPDIFF(HOUR, CURRENT_TIMESTAMP, CONCAT(CURDATE(), ' 17:00:00')))");
                 $timeInStmt->execute(['employeeID' => $user['employeeID']]);
 
                 echo json_encode([
@@ -84,8 +85,6 @@
 
     // Fetch the result
     $lastLoggedIn = $stmt->fetch();
-  
-
 
     // EMPLOYEE SIDE
     // Fetch employee information from the database
@@ -1524,10 +1523,6 @@
             </div>
             <div class="profile-time-container">
                 <div class="profile-time" id="profile-time">
-                </div>
-                <div class="button-container">
-                    <button onclick="recordTimein()">TIME IN</button>
-                    <button onclick="recordTimeout()">TIME OUT</button>
                 </div>
             </div>
         </div>
