@@ -1591,7 +1591,7 @@
 
         // Function to populate the table dynamically
         function populateEmployeeTable(departmentFilter = null) {
-            fetch('finalindex.php?action=getEmployees')
+            fetch('index.php?action=getEmployees')
                 .then(response => response.json())
                 .then(data => {
                     // Clear existing rows
@@ -1641,7 +1641,7 @@
                     console.log(employeeId);
 
                     // Fetch combined employee data
-                    fetch(`finalindex.php?fetchEmployeeData=true&employeeID=${employeeId}`)
+                    fetch(`index.php?fetchEmployeeData=true&employeeID=${employeeId}`)
                         .then((response) => response.json())
                         .then((data) => {
                             if (data.success) {
@@ -1724,7 +1724,7 @@
             }
 
             // Send data to the server
-            fetch('finalindex.php', {
+            fetch('index.php', {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
@@ -1804,7 +1804,7 @@
                 return;
             }
 
-            fetch("finalindex.php", {
+            fetch("index.php", {
                 method: "POST",
                 headers: {
                     "Content-Type": "application/json",
@@ -1904,7 +1904,7 @@
             formData.append("leaveID", leaveID);
             formData.append("leaveStatus", leaveStatus);
 
-            fetch("finalindex.php", {
+            fetch("index.php", {
                 method: "POST",
                 body: formData,
             })
@@ -2012,7 +2012,7 @@
         });
 
         function populatePayrollTable(departmentFilter = null){
-            fetch('finalindex.php?action=getPayslips')
+            fetch('index.php?action=getPayslips')
                 .then(response => response.json())
                 .then(data => {
                     // Clear existing rows
@@ -2054,7 +2054,7 @@
                 icon.addEventListener("click", function (event) {
                     var payslip_id = icon.getAttribute('data-payslip-id'); // Get the payslip ID from the data attribute
                     // Fetch payslip data from the server using AJAX
-                    fetch('finalindex.php', {
+                    fetch('index.php', {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
                         body: JSON.stringify({ action: 'fetchPayslipDetails', payrollID: payslip_id }) // Send the payslipID to the backend
@@ -2155,7 +2155,7 @@
         inputEmployeeID.addEventListener('blur', function () {
             const employeeID = inputEmployeeID.value.trim();
             if (employeeID) {
-                fetch('finalindex.php', {
+                fetch('index.php', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ action: 'fetchEmployeeDetails', employeeID })
@@ -2177,7 +2177,7 @@
 
         // Disable unavailable dates in the date picker
         function disableUnavailableDates(employeeID) {
-            fetch('finalindex.php', {
+            fetch('index.php', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ action: 'fetchUnavailableDates', employeeID })
@@ -2224,7 +2224,7 @@
 
         // When valid dates are entered, calculate hours worked
         function calculateHoursWorked(employeeID, startDate, endDate) {
-            fetch('finalindex.php', {
+            fetch('index.php', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ action: 'fetchHoursWorked', employeeID, startDate, endDate })
@@ -2298,7 +2298,7 @@
                 paymentDate: formattedDate
             };
 
-            fetch('finalindex.php', {
+            fetch('index.php', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ action: 'generatePayslip', payslipData })
