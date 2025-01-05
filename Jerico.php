@@ -105,7 +105,7 @@
     }
 
     // Fetch attendance records for the specified employee
-    $query = "SELECT date, TimeIn, TimeOut, hoursWorked FROM attendance WHERE employeeID = :empId ORDER BY date DESC";
+    $query = "SELECT date, TimeIn, TimeOut, hoursWorked FROM attendance WHERE employeeID = :empId ORDER BY date DESC LIMIT 8";
     $preparedStatement = $pdo->prepare($query);
     $preparedStatement->execute(['empId' => $selectedEmployeeID]);
     $attendanceRecords = $preparedStatement->fetchAll();
