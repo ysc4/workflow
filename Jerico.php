@@ -1618,33 +1618,20 @@
                     <thead>
                         <th>START DATE</th>
                         <th>END DATE</th>
-                        <th>LEAVE CATEGORY</th>
-                        <th>LEAVE LENGTH</th>
-                        <th>APPROVAL STATUS</th>
+                        <th>LEAVE TYPE</th>
+                        <th>DURATION</th>
+                        <th>STATUS</th>
+                        <th>VIEW</th>
                     </thead>
                     <tbody>
-                        <?php if (!empty($employeeLeaveRecords)): ?>
-                            <?php foreach ($employeeLeaveRecords as $leave): ?>
-                                <?php
-                                    // Calculate leave length in days
-                                    $startDate = new DateTime($leave['startDate']);
-                                    $endDate = new DateTime($leave['endDate']);
-                                    $interval = $startDate->diff($endDate);
-                                    $leaveLength = $interval->days + 1 . ' day(s)';
-                                ?>
-                                <tr>
-                                    <td><?= htmlspecialchars($leave['startDate']); ?></td>
-                                    <td><?= htmlspecialchars($leave['endDate']); ?></td>
-                                    <td><?= htmlspecialchars($leave['leaveType']); ?></td>
-                                    <td><?= htmlspecialchars($leaveLength); ?></td>
-                                    <td><?= htmlspecialchars($leave['leaveStatus']); ?></td>
-                                </tr>
-                            <?php endforeach; ?>
-                        <?php else: ?>
-                            <tr>
-                                <td colspan="5">No leave requests found for this employee.</td>
-                            </tr>
-                        <?php endif; ?>
+                        <tr>
+                            <td>01/09/2025</td>
+                            <td>01/10/2025</td>
+                            <td>Vacation</td>
+                            <td>1 day</td>
+                            <td>Approved</td>
+                            <td id="view-icon-cell"><i class="fa-solid fa-eye view-leave-icon" data-id="1" style="cursor: pointer;"></i></td>
+                        </tr>
                     </tbody>
                 </table>
             </div>
@@ -1684,7 +1671,7 @@
                         </div>
                     </div>
                     <div class="payment-history">
-                    <h2>Payment History</h2>
+                        <h2>Payment History</h2>
                         <table>
                             <thead>
                                 <tr>
