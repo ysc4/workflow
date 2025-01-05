@@ -27,15 +27,16 @@
         exit; // Stop further execution if connection fails
     }
     
+    //login
+    $action = $_POST['action'] ?? '';
 
-      // login
-      if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+    if ($action === 'login') {
         $username = $_POST['username'] ?? '';
         $password = $_POST['password'] ?? '';
 
         // Fetch user credentials
         $stmt = $pdo->prepare("
-            SELECT uc.username, uc.password, e.department
+            SELECT uc.username, uc.password, e.department, e.employeeID
             FROM UserCredentials uc
             JOIN employee e ON uc.employeeID = e.employeeID
             WHERE uc.username = :username
@@ -44,7 +45,11 @@
         $user = $stmt->fetch();
 
         if ($user && $user['password'] === $password) {
-            echo json_encode(['success' => true, 'department' => $user['department']]);
+            echo json_encode([
+                'success' => true,
+                'employeeID' => $user['employeeID'],
+                'department' => $user['department']
+            ]);
         } else {
             echo json_encode(['success' => false, 'message' => 'Invalid username or password']);
         }
@@ -2523,10 +2528,10 @@
             const password = document.getElementById('password').value;
 
             // Send login data to the server
-            fetch('http://localhost/workflow2Copy/index.php', { // use URL, not file path
+            fetch('http://localhost/workflow2Copy/merge.php', { // use URL not file path
                 method: 'POST',
                 headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-                body: new URLSearchParams({ username, password })
+                body: new URLSearchParams({ action: 'login', username, password })
             })
             .then(response => response.json())
             .then(data => {
