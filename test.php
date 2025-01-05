@@ -52,7 +52,7 @@
 
     // EMPLOYEE SIDE
     // Fetch employee information from the database
-    $selectedEmployeeID = 2; // Example employee ID, you can dynamically set this
+    $selectedEmployeeID = 8; // Example employee ID, you can dynamically set this
     $query = "SELECT * FROM employee WHERE employeeID = :selectedEmployeeID";
     $statement = $pdo->prepare($query);
     $statement->execute(['selectedEmployeeID' => $selectedEmployeeID]);
@@ -89,8 +89,9 @@
     // Fetch leave data for the specified employee
     $sql = "SELECT startDate, endDate, leaveType, leaveStatus 
             FROM leaverequest 
-            WHERE employeeID = :selectedEmployeeID 
-            ORDER BY leaveID DESC";
+            WHERE employeeID = :selectedEmployeeID and leaveStatus = 'Approved'
+            ORDER BY leaveID DESC
+            LIMIT 3";
     $stmt = $pdo->prepare($sql);
     $stmt->execute(['selectedEmployeeID' => $selectedEmployeeID]);
     $employeeLeaveRecords = $stmt->fetchAll();
@@ -141,23 +142,37 @@
     $stmt->execute(['selectedEmployeeID' => $selectedEmployeeID]);
     $employeePaymentHistory = $stmt->fetchAll();
 
-    // Check if the request is a POST request
+    // Check if data was retrieved
+	if ($payrollData) {
+		$totalHoursWorked = $payrollData['totalHoursWorked'];
+		$payPerHour = $payrollData['ratePerHour'];
+		$deductions = $payrollData['deductions'];
+		$netPay = $payrollData['netPay'];
+	} else {
+		// Set default values if no payroll data is found
+		$totalHoursWorked = 0;
+		$payPerHour = 0;
+		$deductions = 0;
+		$netPay = 0;
+	}
+
+	// Check if the request is a POST request
 	if ($_SERVER['REQUEST_METHOD'] == 'POST') {
 		// Read the incoming JSON request
 		$data = json_decode(file_get_contents('php://input'), true);
 
 		if ($data['action'] == 'checkLeaveBalance') {
-			$employeeID = $data['employeeID'];
+			$selectedEmployeeID = $data['employeeID'];
 			$leaveType = $data['leaveType'];
 			$leaveDays = $data['leaveDays'];
 
 			// Query to check the leave balance
 			$stmt = $pdo->prepare("SELECT leaveBalance FROM employee WHERE employeeID = ?");
-			$stmt->execute([$employeeID]);
-			$employee = $stmt->fetch();
+			$stmt->execute([$selectedEmployeeID]);
+			$selectedEmployeeID = $stmt->fetch();
 
-			if ($employee) {
-				$currentBalance = $employee['leaveBalance'];
+			if ($selectedEmployeeID) {
+				$currentBalance = $selectedEmployeeID['leaveBalance'];
 
 				// Check if the leave balance is sufficient
 				if ($currentBalance >= $leaveDays) {
@@ -169,7 +184,7 @@
 				echo json_encode(['leaveAvailable' => false]);
 			}
 		} elseif ($data['action'] == 'submitLeaveRequest') {
-			$employeeID = $data['employeeID'];
+			$selectedEmployeeID = $data['employeeID'];
 			$leaveType = $data['leaveType'];
 			$startDate = $data['startDate'];
 			$endDate = $data['endDate'];
@@ -181,14 +196,14 @@
 			// Insert the leave request into the database
 			$stmt = $pdo->prepare("INSERT INTO leaverequest (leaveType, startDate, endDate, employeeID, leaveStatus) 
 								VALUES (?, ?, ?, ?, 'Pending')");
-			if ($stmt->execute([$leaveType, $startDate, $endDate, $employeeID])) {
+			if ($stmt->execute([$leaveType, $startDate, $endDate, $selectedEmployeeID])) {
 				echo json_encode(['success' => true]);
 			} else {
 				echo json_encode(['success' => false, 'error' => 'Failed to insert leave request']);
 			}
 		}
 		exit;
-	}
+    }
 
 
     // HR SIDE
@@ -2669,34 +2684,103 @@
                 headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
                 body: new URLSearchParams({ username, password })
             })
-                    .then(response => response.json())
-                    .then(data => {
-                        if (data.success) {
-                            if (data.department === 'HR Department') {
-                                loginContainer.classList.add('hidden');
-                                hrMainContainer.classList.remove('hidden');
-                            } else if (data.department === 'IT Department' || data.department === 'Finance Department') {
-                                loginContainer.classList.add('hidden');
-                                employeeMainContainer.classList.remove('hidden');
-                            }
-                        } else {
-                            alert(data.message);
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        if (data.department === 'HR Department') {
+                            loginContainer.classList.add('hidden');
+                            hrMainContainer.classList.remove('hidden');
+                        } else if (data.department === 'IT Department' || data.department === 'Finance Department') {
+                            loginContainer.classList.add('hidden');
+                            employeeMainContainer.classList.remove('hidden');
                         }
-                    })
-                    .catch(error => {
-                        console.error('Error:', error);
-                    });
-                    userIcon.addEventListener('click', function() { // logout
-                            hrMainContainer.classList.add('hidden');
-                            employeeMainContainer.classList.add('hidden');
-                            loginContainer.classList.remove('hidden');
-                        });
+                    } else {
+                        alert(data.message);
+                    }
+                })
+                .catch(error => {
+                    console.error('Error:', error);
                 });
+                userIcon.addEventListener('click', function() { // logout
+                        hrMainContainer.classList.add('hidden');
+                        employeeMainContainer.classList.add('hidden');
+                        loginContainer.classList.remove('hidden');
+                    });
             });
+        });
 
         // EMPLOYEE SIDE
-        
-    
+        document.getElementById('submitLeaveRequest').addEventListener('click', function() {
+        const leaveType = document.getElementById('leave-type').value;
+        const startDate = document.getElementById('start-date').value;
+        const endDate = document.getElementById('end-date').value;
+
+        const employeeID = <?php echo json_encode($selectedEmployeeID); ?>;
+
+        // Check if all fields are filled
+        if (!leaveType || !startDate || !endDate) {
+            alert('Please fill in all the fields.');
+            return;
+        }
+
+        // Calculate the number of days for the leave request
+        const start = new Date(startDate);
+        const end = new Date(endDate);
+        const diffTime = end - start;
+        const diffDays = diffTime / (1000 * 3600 * 24);
+
+        if (diffDays <= 0) {
+            alert('End date must be after start date.');
+            return;
+        }
+
+        // First, check the leave balance before submitting the request
+        fetch('', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+                action: 'checkLeaveBalance',
+                employeeID: employeeID,
+                leaveType: leaveType,
+                leaveDays: diffDays // Send the number of leave days
+            })
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.leaveAvailable) {
+                // Leave is available, now submit the leave request
+                fetch('', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        action: 'submitLeaveRequest',
+                        employeeID: employeeID,
+                        leaveType: leaveType,
+                        startDate: startDate,
+                        endDate: endDate,
+                        leaveDays: diffDays
+                    })
+                })
+                        .then(response => response.json())
+                        .then(data => {
+                            if (data.success) {
+                                alert('Leave request submitted successfully');
+                                // Reset the form fields
+                                document.getElementById('start-date').value = '';
+                                document.getElementById('end-date').value = '';
+                            } else {
+                                alert('Failed to submit leave request: ' + (data.error || 'Unknown error'));
+                            }
+                        });
+                    } else {
+                        alert('Insufficient leave balance' + " " + diffDays);
+                    }
+                });
+            });
 
     </script>
     </body>
