@@ -151,74 +151,6 @@
         exit;
     }
 
-    if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST)) {
-        header('Content-Type: application/json');
-    
-        try {
-            $input = json_decode(file_get_contents("php://input"), true);
-    
-            $lastName = filter_var($input['lastName'], FILTER_SANITIZE_STRING);
-            $firstName = filter_var($input['firstName'], FILTER_SANITIZE_STRING);
-            $contactInformation = filter_var($input['contactInformation'], FILTER_SANITIZE_STRING);
-            $department = filter_var($input['department'], FILTER_SANITIZE_STRING);
-            $position = filter_var($input['position'], FILTER_SANITIZE_STRING);
-    
-            if (!preg_match('/^[a-zA-Z\s]+$/', $lastName)) {
-                throw new Exception("Invalid last name.");
-            }
-    
-            if (!preg_match('/^[a-zA-Z\s]+$/', $firstName)) {
-                throw new Exception("Invalid first name.");
-            }
-    
-            if (empty($position)) {
-                throw new Exception("Position is required.");
-            }
-    
-            $stmt = $pdo->prepare("
-                INSERT INTO employee (lastName, firstName, contactInformation, department, position)
-                VALUES (:lastName, :firstName, :contactInformation, :department, :position)
-            ");
-            $stmt->execute([
-                ':lastName' => $lastName,
-                ':firstName' => $firstName,
-                ':contactInformation' => $contactInformation,
-                ':department' => $department,
-                ':position' => $position,
-            ]);
-    
-            echo json_encode(["success" => true]);
-        } catch (Exception $e) {
-            echo json_encode(["success" => false, "message" => $e->getMessage()]);
-        }
-        exit();
-    }
-
-    // Edit Employee
-    if (isset($_GET['editEmployee'])) {
-        header('Content-Type: application/json');
-        $input = json_decode(file_get_contents("php://input"), true);
-
-        try {
-            $sql = "UPDATE employee 
-                    SET contactInformation = ?, department = ?, position = ?
-                    WHERE employeeID = ?";
-            $stmt = $pdo->prepare($sql);
-            $stmt->execute([
-                $input['contactInformation'],
-                $input['department'],
-                $input['position'],
-                $input['employeeID']
-            ]);
-
-            echo json_encode(["success" => true]);
-        } catch (PDOException $e) {
-            echo json_encode(["success" => false, "message" => "Database error: " . $e->getMessage()]);
-        }
-        exit;
-    }
-    
-
     try {
         $sql = "SELECT
                     lr.leaveID,
@@ -295,13 +227,21 @@
 
             case 'fetchUnavailableDates':
                 if (isset($data['employeeID'])) {
-                    $stmt = $pdo->prepare("SELECT startDate, endDate FROM payroll WHERE employeeID = ?");
-                    $stmt->execute([$data['employeeID']]);
-                    $dates = [];
-                    while ($row = $stmt->fetch(PDO::FETCH_ASSOC)) {
-                        $dates = array_merge($dates, range(strtotime($row['startDate']), strtotime($row['endDate'])));
+                    try {
+                        $stmt = $pdo->prepare("SELECT startDate, endDate FROM payroll WHERE employeeID = ?");
+                        $stmt->execute([$data['employeeID']]);
+            
+                        $ranges = [];
+                        while ($row = $stmt->fetch(PDO::FETCH_ASSOC)) {
+                            $ranges[] = [
+                                'startDate' => $row['startDate'],
+                                'endDate' => $row['endDate']
+                            ];
+                        }
+                        echo json_encode(['success' => true, 'ranges' => $ranges]);
+                    } catch (Exception $e) {
+                        echo json_encode(['success' => false, 'message' => $e->getMessage()]);
                     }
-                    echo json_encode(['success' => true, 'dates' => array_map(fn($date) => date('Y-m-d', $date), $dates)]);
                 } else {
                     echo json_encode(['success' => false, 'message' => 'employeeID is missing']);
                 }
@@ -365,6 +305,94 @@
 
                 } else {
                     echo json_encode(['success' => false, 'message' => 'payslipData is missing']);
+                }
+                break;
+            case 'editEmployee':
+                header('Content-Type: application/json');
+    
+                try {
+                    // Decode the JSON payload
+                    $input = json_decode(file_get_contents("php://input"), true);
+            
+                    if (!$input) {
+                        throw new Exception("Invalid input data.");
+                    }
+            
+                    // Extract and sanitize the fields
+                    $employeeID = filter_var($input['employeeID'], FILTER_SANITIZE_NUMBER_INT);
+                    $contactInformation = filter_var($input['contactInformation'], FILTER_SANITIZE_STRING);
+                    $department = filter_var($input['department'], FILTER_SANITIZE_STRING);
+                    $position = filter_var($input['position'], FILTER_SANITIZE_STRING);
+            
+                    // Validate required fields
+                    if (empty($employeeID) || !is_numeric($employeeID)) {
+                        throw new Exception("Invalid or missing employee ID.");
+                    }
+                    if (empty($position)) {
+                        throw new Exception("Position is required.");
+                    }
+            
+                    // Update the employee details
+                    $stmt = $pdo->prepare("
+                        UPDATE employee 
+                        SET contactInformation = :contactInformation, 
+                            department = :department, 
+                            position = :position
+                        WHERE employeeID = :employeeID
+                    ");
+                    $stmt->execute([
+                        ':contactInformation' => $contactInformation,
+                        ':department' => $department,
+                        ':position' => $position,
+                        ':employeeID' => $employeeID,
+                    ]);
+            
+                    echo json_encode(["success" => true, "message" => "Employee updated successfully."]);
+                } catch (Exception $e) {
+                    // Catch errors and return an appropriate response
+                    echo json_encode(["success" => false, "message" => $e->getMessage()]);
+                }
+                break;
+
+            case 'addEmployee':
+                header('Content-Type: application/json');
+            
+                try {
+                    $input = json_decode(file_get_contents("php://input"), true);
+            
+                    $lastName = filter_var($input['lastName'], FILTER_SANITIZE_STRING);
+                    $firstName = filter_var($input['firstName'], FILTER_SANITIZE_STRING);
+                    $contactInformation = filter_var($input['contactInformation'], FILTER_SANITIZE_STRING);
+                    $department = filter_var($input['department'], FILTER_SANITIZE_STRING);
+                    $position = filter_var($input['position'], FILTER_SANITIZE_STRING);
+            
+                    if (!preg_match('/^[a-zA-Z\s]+$/', $lastName)) {
+                        throw new Exception("Invalid last name.");
+                    }
+            
+                    if (!preg_match('/^[a-zA-Z\s]+$/', $firstName)) {
+                        throw new Exception("Invalid first name.");
+                    }
+            
+                    if (empty($position)) {
+                        throw new Exception("Position is required.");
+                    }
+            
+                    $stmt = $pdo->prepare("
+                        INSERT INTO employee (lastName, firstName, contactInformation, department, position)
+                        VALUES (:lastName, :firstName, :contactInformation, :department, :position)
+                    ");
+                    $stmt->execute([
+                        ':lastName' => $lastName,
+                        ':firstName' => $firstName,
+                        ':contactInformation' => $contactInformation,
+                        ':department' => $department,
+                        ':position' => $position,
+                    ]);
+            
+                    echo json_encode(["success" => true]);
+                } catch (Exception $e) {
+                    echo json_encode(["success" => false, "message" => $e->getMessage()]);
                 }
                 break;
 
@@ -1695,12 +1723,13 @@
             }
 
             // Send data to the server
-            fetch('finalindex.php?action=addEmployee', {
+            fetch('finalindex.php', {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
                 },
                 body: JSON.stringify({
+                    action: 'addEmployee',
                     lastName,
                     firstName,
                     contactInformation: contactInfo,
@@ -1762,30 +1791,31 @@
         }
 
         document.getElementById("editEmployeeForm").addEventListener("submit", function (event) {
-            event.preventDefault(); // Prevent form submission from reloading the page
+            event.preventDefault();
 
             const employeeId = edit_btn.value;
             const contactInfo = document.getElementById("editContactInfo").value.trim();
             const department = document.getElementById("editDepartment").value.trim();
             const position = document.getElementById("editPosition").value.trim();
+
             if (position === '') {
                 alert('Position is required.');
                 return;
             }
 
-            fetch("finalindex.php?editEmployee=true", {
+            fetch("finalindex.php", {
                 method: "POST",
                 headers: {
                     "Content-Type": "application/json",
                 },
                 body: JSON.stringify({
+                    action: 'editEmployee',
                     employeeID: employeeId,
                     contactInformation: contactInfo,
                     department: department,
                     position: position,
                 }),
-            })
-                .then((response) => response.json())
+            }).then((response) => response.json())
                 .then((data) => {
                     if (data.success) {
                         alert("Employee details updated successfully!");
@@ -1796,23 +1826,7 @@
                         document.getElementById("viewPosition").innerText = "Position: " + position;
 
                         // Update the Employee Table
-                        const employeeRow = document.querySelector(`.view-employee-icon[data-id='${employeeId}']`).closest("tr");
-                        if (!employeeRow) {
-                            console.error(`No element found for data-id="${employeeId}"`);
-                        }
-                        if (employeeRow) {
-                            employeeRow.cells[3].innerText = position;        // Update position cell
-                            employeeRow.cells[4].innerText = contactInfo;    // Update contact information cell
-                            employeeRow.setAttribute("data-department", department); // Update the row's department
-                        }
-
-                        // Reapply the filter to ensure consistency
-                        const selectedDepartment = document.getElementById("department").value;
-                        if (employeeRow.getAttribute("data-department") === selectedDepartment) {
-                            employeeRow.style.display = ""; // Show row if it matches the filter
-                        } else {
-                            employeeRow.style.display = "none"; // Hide row if it doesn't match the filter
-                        }
+                        populateEmployeeTable(document.getElementById("filterEmployeeDepartment").value);
 
                         // Close the Edit Modal and reopen the View Modal
                         document.getElementById("editEmployeeModal").style.display = "none";
@@ -1825,6 +1839,7 @@
                     console.error("Error updating employee details:", error);
                 });
         });
+
 
         // Sorting the incoming leave requests
         var sortAscending = true;
@@ -2169,28 +2184,42 @@
             .then(response => response.json())
             .then(data => {
                 if (data.success) {
-                    const unavailableDates = data.dates; // Array of dates
-                    startPayDate.addEventListener('input', function () {
-                        const startDate = new Date(startPayDate.value);
-                        const isUnavailable = unavailableDates.some(date => new Date(date) >= startDate);
-                        if (isUnavailable) {
-                            alert('The selected start date is already covered by a previous payslip.');
-                            startPayDate.value = '';
+                    console.log(data.ranges);
+                    const unavailableDates = new Set();
+                    
+                    // Format dates as yyyy-mm-dd
+                    data.ranges.forEach(range => {
+                        let currentDate = new Date(range.startDate);
+                        let endDate = new Date(range.endDate);
+
+                        // Add each date in the range to unavailableDates
+                        while (currentDate <= endDate) {
+                            let formattedDate = currentDate.toISOString().split('T')[0]; // yyyy-mm-dd format
+                            unavailableDates.add(formattedDate);
+                            currentDate.setDate(currentDate.getDate() + 1); // Move to the next day
                         }
                     });
 
-                    endPayDate.addEventListener('input', function () {
-                        const endDate = new Date(endPayDate.value);
-                        const isUnavailable = unavailableDates.some(date => new Date(date) >= endDate);
-                        if (isUnavailable) {
-                            alert('The selected end date is already covered by a previous payslip.');
-                            endPayDate.value = '';
-                        }
+                    const dateInputFields = [startPayDate, endPayDate];
+
+                    // Add event listeners for both start and end date pickers
+                    dateInputFields.forEach(dateField => {
+                        dateField.addEventListener('input', function () {
+                            const selectedDate = dateField.value; // yyyy-mm-dd format
+                            if (unavailableDates.has(selectedDate)) {
+                                alert(`The selected date (${selectedDate}) is unavailable due to an existing payslip.`);
+                                dateField.value = ''; // Clear invalid date selection
+                            }
+                        });
                     });
+
+                } else {
+                    console.error('Error: Could not fetch unavailable dates.', data.message);
                 }
             })
             .catch(error => console.error('Error fetching unavailable dates:', error));
         }
+
 
         // When valid dates are entered, calculate hours worked
         function calculateHoursWorked(employeeID, startDate, endDate) {
