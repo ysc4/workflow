@@ -71,15 +71,20 @@
             exit;
         }
 
-    // Retrieve the employeeID of the last person who logged in
-    $stmt = $pdo->prepare("SELECT employeeID 
-    FROM attendance 
-    ORDER BY attendanceID DESC 
-    LIMIT 1");
+    // Retrieve the employeeID of the last person who logged in, excluding HR employees
+    $stmt = $pdo->prepare(
+        "SELECT a.employeeID
+        FROM attendance a
+        JOIN employee e ON a.employeeID = e.employeeID
+        WHERE e.department != 'HR Department'
+        ORDER BY a.attendanceID DESC 
+        LIMIT 1"
+    );
     $stmt->execute();
 
     // Fetch the result
-    $lastLoggedIn = $stmt->fetch();    
+    $lastLoggedIn = $stmt->fetch();
+  
 
 
     // EMPLOYEE SIDE
@@ -1629,27 +1634,38 @@
                 </div>
             </div>
             <div class="container" id="leave-history">
-            <h2>Leave History</h2>
+                <h2>Leave History</h2>
                 <table>
                     <thead>
-                        <th>LEAVE ID</th>
                         <th>START DATE</th>
                         <th>END DATE</th>
-                        <th>LEAVE TYPE</th>
-                        <th>DURATION</th>
-                        <th>STATUS</th>
-                        <th>VIEW</th>
+                        <th>LEAVE CATEGORY</th>
+                        <th>LEAVE LENGTH</th>
+                        <th>APPROVAL STATUS</th>
                     </thead>
                     <tbody>
-                        <tr>
-                            <td>1</td>
-                            <td>01/09/2025</td>
-                            <td>01/10/2025</td>
-                            <td>Vacation</td>
-                            <td>1 day</td>
-                            <td>Approved</td>
-                            <td id="view-icon-cell"><i class="fa-solid fa-eye view-leave-icon" data-id="1" style="cursor: pointer;"></i></td>
-                        </tr>
+                        <?php if (!empty($employeeLeaveRecords)): ?>
+                            <?php foreach ($employeeLeaveRecords as $leave): ?>
+                                <?php
+                                    // Calculate leave length in days
+                                    $startDate = new DateTime($leave['startDate']);
+                                    $endDate = new DateTime($leave['endDate']);
+                                    $interval = $startDate->diff($endDate);
+                                    $leaveLength = $interval->days + 1 . ' day(s)';
+                                ?>
+                                <tr>
+                                    <td><?= htmlspecialchars($leave['startDate']); ?></td>
+                                    <td><?= htmlspecialchars($leave['endDate']); ?></td>
+                                    <td><?= htmlspecialchars($leave['leaveType']); ?></td>
+                                    <td><?= htmlspecialchars($leaveLength); ?></td>
+                                    <td><?= htmlspecialchars($leave['leaveStatus']); ?></td>
+                                </tr>
+                            <?php endforeach; ?>
+                        <?php else: ?>
+                            <tr>
+                                <td colspan="5">No leave requests found for this employee.</td>
+                            </tr>
+                        <?php endif; ?>
                     </tbody>
                 </table>
             </div>
