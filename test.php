@@ -2,9 +2,9 @@
     // Database connection parameters
     $host = 'localhost'; // Hostname or IP address
     $db = 'u415861906_infosec2222'; // Database name
-    $user = 'root'; // MySQL username
-    $port = 3307;
-    $pass = ''; // MySQL password
+    $user = 'Jerico'; // MySQL username
+    $port = 3308;
+    $pass = '12182003'; // MySQL password
     $charset = 'utf8mb4'; // Character set (optional but recommended)
 
     try {
@@ -26,8 +26,8 @@
         echo "Connection failed: " . $e->getMessage();
         exit; // Stop further execution if connection fails
     }
-    
-    //login
+
+    // LOG IN
     $action = $_POST['action'] ?? '';
 
     if ($action === 'login') {
@@ -909,7 +909,7 @@
             font-weight: 1000;
             margin: 5px 5px 10px;
         }
-                .login-container {
+        .login-container {
             display: flex;
             justify-content: center;
             align-items: center;
@@ -2528,7 +2528,7 @@
             const password = document.getElementById('password').value;
 
             // Send login data to the server
-            fetch('http://localhost/workflow2Copy/merge.php', { // use URL not file path
+            fetch('http://localhost/Lim/index.php', { // use URL not file path
                 method: 'POST',
                 headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
                 body: new URLSearchParams({ action: 'login', username, password })
