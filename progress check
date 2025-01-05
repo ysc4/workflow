@@ -2713,7 +2713,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
         }
 
         // Send login data to the server
-        fetch('http://localhost/workflow2Copy/index.php', {
+        fetch('http://localhost/workflow2Copy/index.php', { // change URL
             method: 'POST',
             headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
             body: new URLSearchParams({ action: 'login', username, password })
@@ -2794,7 +2794,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
             confirmLeaveModal.style.display = 'none';
 
             // Submit the leave request to the server
-            fetch('http://localhost/workflow2Copy/index.php', {
+            fetch('http://localhost/workflow2Copy/index.php', { // change URL
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/x-www-form-urlencoded'  // URL-encoded content type
