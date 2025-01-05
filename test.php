@@ -1,65 +1,198 @@
 <?php
-    // Database connection parameters
-    $host = 'localhost'; // Hostname or IP address
-    $db = 'u415861906_infosec2222'; // Database name
-    $user = 'Jerico'; // MySQL username
+	$host = 'localhost'; // Hostname or IP address
+	$db = 'u415861906_infosec2222'; // Database name
+	$user = 'Jerico'; // MySQL username
+	$pass = '12182003'; // MySQL password
     $port = 3308;
-    $pass = '12182003'; // MySQL password
-    $charset = 'utf8mb4'; // Character set (optional but recommended)
+	$charset = 'utf8mb4'; // Character set (optional but recommended)
 
-    try {
-        // Set DSN (Data Source Name)
-        $dsn = "mysql:host=$host;port=$port;dbname=$db;charset=$charset";
+	try {
+		// Set DSN (Data Source Name)
+		$dsn = "mysql:host=$host;port=$port;dbname=$db;charset=$charset";
+		
+		// Options for PDO
+		$options = [
+			PDO::ATTR_ERRMODE            => PDO::ERRMODE_EXCEPTION, // Enables exceptions for errors
+			PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC,       // Fetches results as associative arrays
+			PDO::ATTR_EMULATE_PREPARES   => false,                  // Disables emulated prepared statements
+		];
+		
+		// Create a PDO instance
+		$pdo = new PDO($dsn, $user, $pass, $options);
+		$asdsadsa = 1;
+		
+		
+	} catch (PDOException $e) {
+		// Handle connection errors
+		echo "Connection failed: " . $e->getMessage();
+	}
 
-        // Options for PDO
-        $options = [
-            PDO::ATTR_ERRMODE            => PDO::ERRMODE_EXCEPTION, // Enables exceptions for errors
-            PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC,       // Fetches results as associative arrays
-            PDO::ATTR_EMULATE_PREPARES   => false,                  // Disables emulated prepared statements
-        ];
-
-        // Create a PDO instance
-        $pdo = new PDO($dsn, $user, $pass, $options);
-
-    } catch (PDOException $e) {
-        // Handle connection errors
-        echo "Connection failed: " . $e->getMessage();
-        exit; // Stop further execution if connection fails
-    }
-
-    // LOG IN
-    $action = $_POST['action'] ?? '';
-
-    if ($action === 'login') {
+    // SIGN IN
+    if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $username = $_POST['username'] ?? '';
         $password = $_POST['password'] ?? '';
-
+    
         // Fetch user credentials
         $stmt = $pdo->prepare("
-            SELECT uc.username, uc.password, e.department, e.employeeID
+            SELECT uc.username, uc.password, e.department
             FROM UserCredentials uc
             JOIN employee e ON uc.employeeID = e.employeeID
             WHERE uc.username = :username
         ");
         $stmt->execute(['username' => $username]);
         $user = $stmt->fetch();
-
+    
         if ($user && $user['password'] === $password) {
-            echo json_encode([
-                'success' => true,
-                'employeeID' => $user['employeeID'],
-                'department' => $user['department']
-            ]);
+            echo json_encode(['success' => true, 'department' => $user['department']]);
         } else {
             echo json_encode(['success' => false, 'message' => 'Invalid username or password']);
         }
         exit;
     }
-    
-    // EMPLOYEE SIDE // 
-    
+
+    // EMPLOYEE SIDE
+    // Fetch employee information from the database
+    $selectedEmployeeID = 2; // Example employee ID, you can dynamically set this
+    $query = "SELECT * FROM employee WHERE employeeID = :selectedEmployeeID";
+    $statement = $pdo->prepare($query);
+    $statement->execute(['selectedEmployeeID' => $selectedEmployeeID]);
+    $employeeData = $statement->fetch();
+
+    if ($employeeData) {
+        $employeeFullName = $employeeData['firstName'] . ' ' . $employeeData['lastName'];
+        $jobTitle = $employeeData['position'];
+        $workDepartment = $employeeData['department'];
+        $contactInfo = $employeeData['contactInformation'];
+    } else {
+        echo "Employee not found.";
+        exit;
+    }
+
+    // Fetch attendance records for the specified employee
+    $query = "SELECT date, TimeIn, TimeOut, hoursWorked FROM attendance WHERE employeeID = :empId ORDER BY date DESC";
+    $preparedStatement = $pdo->prepare($query);
+    $preparedStatement->execute(['empId' => $selectedEmployeeID]);
+    $attendanceRecords = $preparedStatement->fetchAll();
+
+    // Count leaves for a specific employee
+	$sql = "SELECT leaveType, 
+    SUM(DATEDIFF(endDate, startDate) + 1) as leaveCount
+    FROM leaverequest
+    WHERE employeeID = :selectedEmployeeID AND leaveStatus = 'Approved'
+    GROUP BY leaveType;";
+
+    $stmt = $pdo->prepare($sql);
+    $stmt->execute(['selectedEmployeeID' => $selectedEmployeeID]);
+
+    $employeeLeaveCountRecords = $stmt->fetchAll();
+
+    // Fetch leave data for the specified employee
+    $sql = "SELECT startDate, endDate, leaveType, leaveStatus 
+            FROM leaverequest 
+            WHERE employeeID = :selectedEmployeeID 
+            ORDER BY leaveID DESC";
+    $stmt = $pdo->prepare($sql);
+    $stmt->execute(['selectedEmployeeID' => $selectedEmployeeID]);
+    $employeeLeaveRecords = $stmt->fetchAll();
+
+    // Get the current date and extract the current month and year dynamically
+	$currentMonth = date('m');  // Current month in numeric format (01 to 12)
+	$currentYear = date('Y');   // Current year in 4-digit format (e.g., 2025)
+
+	// SQL query to get payroll for the current month and year dynamically
+	$sql = "SELECT hoursWorked AS totalHoursWorked, ratePerHour, deductions, netPay
+		FROM payroll
+		WHERE employeeID = :selectedEmployeeID 
+		AND MONTH(paymentDate) = :currentMonth 
+		AND YEAR(paymentDate) = :currentYear
+		ORDER BY paymentDate DESC 
+		LIMIT 1
+	";
+
+	$stmt = $pdo->prepare($sql);
+	$stmt->execute([
+		'selectedEmployeeID' => $selectedEmployeeID,
+		'currentMonth' => $currentMonth,
+		'currentYear' => $currentYear
+	]);
+
+	$payrollData = $stmt->fetch(PDO::FETCH_ASSOC);
+
+	// Check if data was retrieved
+	if ($payrollData) {
+		$totalHoursWorked = $payrollData['totalHoursWorked'];
+		$payPerHour = $payrollData['ratePerHour'];
+		$deductions = $payrollData['deductions'];
+		$netPay = $payrollData['netPay'];
+	} else {
+		// Set default values if no payroll data is found
+		$totalHoursWorked = 0;
+		$payPerHour = 0;
+		$deductions = 0;
+		$netPay = 0;
+	}
+
+    // Fetch payment records for the specified employee
+    $sql = "SELECT payrollID, paymentDate, netPay 
+        FROM payroll 
+        WHERE employeeID = :selectedEmployeeID 
+        ORDER BY paymentDate DESC";
+    $stmt = $pdo->prepare($sql);
+    $stmt->execute(['selectedEmployeeID' => $selectedEmployeeID]);
+    $employeePaymentHistory = $stmt->fetchAll();
+
+    // Check if the request is a POST request
+	if ($_SERVER['REQUEST_METHOD'] == 'POST') {
+		// Read the incoming JSON request
+		$data = json_decode(file_get_contents('php://input'), true);
+
+		if ($data['action'] == 'checkLeaveBalance') {
+			$employeeID = $data['employeeID'];
+			$leaveType = $data['leaveType'];
+			$leaveDays = $data['leaveDays'];
+
+			// Query to check the leave balance
+			$stmt = $pdo->prepare("SELECT leaveBalance FROM employee WHERE employeeID = ?");
+			$stmt->execute([$employeeID]);
+			$employee = $stmt->fetch();
+
+			if ($employee) {
+				$currentBalance = $employee['leaveBalance'];
+
+				// Check if the leave balance is sufficient
+				if ($currentBalance >= $leaveDays) {
+					echo json_encode(['leaveAvailable' => true]);
+				} else {
+					echo json_encode(['leaveAvailable' => false]);
+				}
+			} else {
+				echo json_encode(['leaveAvailable' => false]);
+			}
+		} elseif ($data['action'] == 'submitLeaveRequest') {
+			$employeeID = $data['employeeID'];
+			$leaveType = $data['leaveType'];
+			$startDate = $data['startDate'];
+			$endDate = $data['endDate'];
+			$leaveDays = $data['leaveDays'];
+
+			// Capitalize the first letter of leaveType
+			$leaveType = ucfirst(strtolower($leaveType));
+
+			// Insert the leave request into the database
+			$stmt = $pdo->prepare("INSERT INTO leaverequest (leaveType, startDate, endDate, employeeID, leaveStatus) 
+								VALUES (?, ?, ?, ?, 'Pending')");
+			if ($stmt->execute([$leaveType, $startDate, $endDate, $employeeID])) {
+				echo json_encode(['success' => true]);
+			} else {
+				echo json_encode(['success' => false, 'error' => 'Failed to insert leave request']);
+			}
+		}
+		exit;
+	}
+
 
     // HR SIDE
+
     if ($_SERVER['REQUEST_METHOD'] === 'GET' && isset($_GET['action']) && $_GET['action'] === 'getEmployees') {
         header('Content-Type: application/json');
     
@@ -414,12 +547,13 @@
                     }
             
                     $stmt = $pdo->prepare("
-                        INSERT INTO employee (lastName, firstName, contactInformation, department, position)
-                        VALUES (:lastName, :firstName, :contactInformation, :department, :position)
+                        INSERT INTO employee (lastName, firstName, contactInformation, department, leaveBalance, position)
+                        VALUES (:lastName, :firstName, :contactInformation, :department, :leaveBalance, :position)
                     ");
                     $stmt->execute([
                         ':lastName' => $lastName,
                         ':firstName' => $firstName,
+                        ':leaveBalance' => 10,
                         ':contactInformation' => $contactInformation,
                         ':department' => $department,
                         ':position' => $position,
@@ -909,7 +1043,7 @@
             font-weight: 1000;
             margin: 5px 5px 10px;
         }
-        .login-container {
+                .login-container {
             display: flex;
             justify-content: center;
             align-items: center;
@@ -964,6 +1098,7 @@
         <i class="fa-solid fa-user" id="userIcon" style="font-size: 30px; color: #4DA1A9;" align="right"></i>
     </div>
 
+    <!-- Login Container -->
     <div class="bg" id="login">
         <div class="login-container">
             <div class="login-form">
@@ -981,6 +1116,7 @@
         </div>
     </div>
 
+    <!-- HR Main Container -->
     <div class="bg hidden" id="hr_main">
         <nav>
             <div class="navigation active" id="employee_nav">Employee</div>
@@ -1145,6 +1281,7 @@
             </table>
         </div>
     </div>
+</div>
 
     <!-- Add Employee Modal -->
     <div id="addEmployeeModal" class="modal">
@@ -1379,12 +1516,13 @@
     <div class="bg hidden" id="employee_main">
         <div class="profile">
             <img src="profile.png" alt="Profile Picture" height="100%" align="left">
-            <div class="profile-info">
-                <h2><?php echo $name; ?></h2>
-                <p><?php echo $role; ?></p>
-                <p><?php echo $department; ?></p>
-                <p><?php echo $contact; ?></p>
-            </div>
+            <div class="employee-details">
+            <h2><?php echo $employeeFullName; ?></h2>
+            <p><?php echo $jobTitle; ?></p>
+            <p><?php echo $workDepartment; ?></p>
+            <p><?php echo $contactInfo; ?></p>
+        </div>
+
             <div class="profile-time-container">
                 <div class="profile-time" id="profile-time">
                 </div>
@@ -1417,35 +1555,36 @@
                         </tr>
                     </thead>
                     <tbody>
-                    <?php foreach ($attendances as $attendance): ?>
-                    <?php
-                    $date = date("m/d/Y", strtotime($attendance['date']));
-                    $timeIn = $attendance['TimeIn'];
-                    $timeOut = $attendance['TimeOut'];
-                    $hoursWorked = gmdate("H:i:s", $attendance['hoursWorked'] * 3600); // Convert hours to HH:MM:SS
+                        <?php foreach ($attendanceRecords as $record): ?>
+                            <?php
+                            $formattedDate = date("m/d/Y", strtotime($record['date']));
+                            $clockInTime = $record['TimeIn'];
+                            $clockOutTime = $record['TimeOut'];
+                            $workDuration = gmdate("H:i:s", $record['hoursWorked'] * 3600); // Convert hours to HH:MM:SS
 
-                    // Determine status based on conditions
-                    if (empty($timeIn) || empty($timeOut)) {
-                        $status = "Absent";  // If TimeIn or TimeOut is missing, consider them absent
-                    } elseif (strtotime($timeIn) > strtotime("09:00:00")) {
-                        $status = "Late";  // If TimeIn is after 9:00 AM, mark as Late
-                    } elseif (strtotime($timeIn) <= strtotime("09:00:00") && !empty($timeIn) && !empty($timeOut)) {
-                        $status = "Present";  // On time and present
-                    } else {
-                        $status = "On Leave";  // If no timeIn and timeOut, assume the employee is on leave (can be customized)
-                    }
-                    ?>
-                    <tr>
-                        <td><?= htmlspecialchars($date) ?></td>
-                        <td><?= htmlspecialchars($timeIn) ?></td>
-                        <td><?= htmlspecialchars($timeOut) ?></td>
-                        <td><?= htmlspecialchars($hoursWorked) ?></td>
-                        <td><?= htmlspecialchars($status) ?></td>
-                    </tr>
-                <?php endforeach; ?>
-                </tbody>
+                            // Determine attendance status
+                            if (empty($clockInTime) || empty($clockOutTime)) {
+                                $attendanceStatus = "Absent";  // Missing clock-in or clock-out means absent
+                            } elseif (strtotime($clockInTime) > strtotime("09:00:00")) {
+                                $attendanceStatus = "Late";  // Clock-in after 9:00 AM means late
+                            } elseif (strtotime($clockInTime) <= strtotime("09:00:00") && !empty($clockInTime) && !empty($clockOutTime)) {
+                                $attendanceStatus = "Present";  // On time and present
+                            } else {
+                                $attendanceStatus = "On Leave";  // Default to on leave
+                            }
+                            ?>
+                            <tr>
+                                <td><?= htmlspecialchars($formattedDate) ?></td>
+                                <td><?= htmlspecialchars($clockInTime) ?></td>
+                                <td><?= htmlspecialchars($clockOutTime) ?></td>
+                                <td><?= htmlspecialchars($workDuration) ?></td>
+                                <td><?= htmlspecialchars($attendanceStatus) ?></td>
+                            </tr>
+                        <?php endforeach; ?>
+                    </tbody>
                 </table>
             </div>
+
         </div>
 
         <!-- Leave Container -->
@@ -1461,47 +1600,46 @@
                         </tr>
                     </thead>
                     <tbody>
-						<?php if (!empty($leaveData)): ?>
-							<?php foreach ($leaveData as $leave): ?>
-								<tr>
-									<td><?php echo htmlspecialchars($leave['leaveType']); ?></td>
-									<td><?php echo htmlspecialchars($leave['leaveCount']); ?></td>
-								</tr>
-							<?php endforeach; ?>
-						<?php else: ?>
-							<tr>
-								<td colspan="2">No leave records found for this employee.</td>
-							</tr>
-						<?php endif; ?>
-					</tbody>
+                        <?php if (!empty($employeeLeaveCountRecords)): ?>
+                            <?php foreach ($employeeLeaveCountRecords as $employeeLeaveCount): ?>
+                                <tr>
+                                    <td><?php echo htmlspecialchars($employeeLeaveCount['leaveType']); ?></td>
+                                    <td><?php echo htmlspecialchars($employeeLeaveCount['leaveCount']); ?></td>
+                                </tr>
+                            <?php endforeach; ?>
+                        <?php else: ?>
+                            <tr>
+                                <td colspan="2">No leave records found for this employee.</td>
+                            </tr>
+                        <?php endif; ?>
+                    </tbody>
                 </table>
             </div>
-
                 <div class="container" id="leave-request">
                     <h2>Request for Leave</h2>              
-                    <form>
-						<label for="leave-type">Leave Type:</label>
-						<select id="leave-type" name="leave-type">
-							<option value="vacation">Vacation</option>
-							<option value="sick">Sick</option>
-							<option value="maternity">Maternity</option>
-							<option value="paternity">Paternity</option>
-							<option value="emergency">Emergency</option>
-							<option value="personal">Personal</option>
-							<option value="bereavement">Bereavement</option>
-							<option value="medical">Medical</option>
-						</select><br>
+                        <form>
+                            <label for="leave-type">Leave Type:</label>
+                            <select id="leave-type" name="leave-type">
+                                <option value="vacation">Vacation</option>
+                                <option value="sick">Sick</option>
+                                <option value="maternity">Maternity</option>
+                                <option value="paternity">Paternity</option>
+                                <option value="emergency">Emergency</option>
+                                <option value="personal">Personal</option>
+                                <option value="bereavement">Bereavement</option>
+                                <option value="medical">Medical</option>
+                            </select><br>
 
-						<label for="start-date">Start Date:</label>
-						<input type="date" id="start-date" name="start-date"><br>
+                            <label for="start-date">Start Date:</label>
+                            <input type="date" id="start-date" name="start-date"><br>
 
-						<label for="end-date">End Date:</label>
-						<input type="date" id="end-date" name="end-date"><br>
+                            <label for="end-date">End Date:</label>
+                            <input type="date" id="end-date" name="end-date"><br>
 
-						<div class="button-container">
-							<button type="button" class="submit" id="submitLeaveRequest">Submit</button>
-						</div>
-					</form>
+                            <div class="button-container">
+                                <button type="button" class="submit" id="submitLeaveRequest">Submit</button>
+                            </div>
+                        </form>
                 </div>
             </div>
             <div class="container" id="leave-history">
@@ -1510,25 +1648,25 @@
                     <thead>
                         <th>START DATE</th>
                         <th>END DATE</th>
-                        <th>LEAVE TYPE</th>
-                        <th>DURATION</th>
-                        <th>STATUS</th>
+                        <th>LEAVE CATEGORY</th>
+                        <th>LEAVE LENGTH</th>
+                        <th>APPROVAL STATUS</th>
                     </thead>
                     <tbody>
-                        <?php if (!empty($leaveRequests)): ?>
-                            <?php foreach ($leaveRequests as $leave): ?>
+                        <?php if (!empty($employeeLeaveRecords)): ?>
+                            <?php foreach ($employeeLeaveRecords as $leave): ?>
                                 <?php
-                                    // Calculate duration in days
+                                    // Calculate leave length in days
                                     $startDate = new DateTime($leave['startDate']);
                                     $endDate = new DateTime($leave['endDate']);
                                     $interval = $startDate->diff($endDate);
-                                    $duration = $interval->days + 1 . ' day(s)';
+                                    $leaveLength = $interval->days + 1 . ' day(s)';
                                 ?>
                                 <tr>
                                     <td><?= htmlspecialchars($leave['startDate']); ?></td>
                                     <td><?= htmlspecialchars($leave['endDate']); ?></td>
                                     <td><?= htmlspecialchars($leave['leaveType']); ?></td>
-                                    <td><?= htmlspecialchars($duration); ?></td>
+                                    <td><?= htmlspecialchars($leaveLength); ?></td>
                                     <td><?= htmlspecialchars($leave['leaveStatus']); ?></td>
                                 </tr>
                             <?php endforeach; ?>
@@ -1537,7 +1675,7 @@
                                 <td colspan="5">No leave requests found for this employee.</td>
                             </tr>
                         <?php endif; ?>
-                </tbody>
+                    </tbody>
                 </table>
             </div>
         </div>
@@ -1587,17 +1725,17 @@
                                 </tr>
                             </thead>
                             <tbody>
-                                <?php if (!empty($payments)): ?>
-                                    <?php foreach ($payments as $payment): ?>
+                                <?php if (!empty($employeePaymentHistory)): ?>
+                                    <?php foreach ($employeePaymentHistory as $individualPayment): ?>
                                         <?php
                                             // Extract payment date and time
-                                            $paymentDateTime = new DateTime($payment['paymentDate']);
+                                            $paymentDateTime = new DateTime($individualPayment['paymentDate']);
                                             $paymentDate = $paymentDateTime->format('Y-m-d');
                                         ?>
                                         <tr>
-                                            <td><?= htmlspecialchars($payment['payrollID']); ?></td>
+                                            <td><?= htmlspecialchars($individualPayment['payrollID']); ?></td>
                                             <td><?= htmlspecialchars($paymentDate); ?></td>
-                                            <td><?= htmlspecialchars('P' . number_format($payment['netPay'], 2)); ?></td>
+                                            <td><?= htmlspecialchars('P' . number_format($individualPayment['netPay'], 2)); ?></td>
                                             <td>Completed</td> <!-- Assuming all payments are completed -->
                                         </tr>
                                     <?php endforeach; ?>
@@ -1614,10 +1752,8 @@
         </div>
     </div>
 
+
     <script>
-
-        // HR SIDE // 
-
         // Get the modal
         var add_modal = document.getElementById("addEmployeeModal");
         var edit_modal = document.getElementById("editEmployeeModal");
@@ -2513,7 +2649,7 @@
             document.getElementById('user-leave_nav').classList.remove('active');
         });
 
-        // LOG IN //
+        // LOG IN
 
         document.addEventListener('DOMContentLoaded', function () {
         const loginButton = document.querySelector('.login-form button');
@@ -2528,38 +2664,39 @@
             const password = document.getElementById('password').value;
 
             // Send login data to the server
-            fetch('http://localhost/Lim/index.php', { // use URL not file path
+            fetch('http://localhost/Lim/index.php', { // use URL, not file path
                 method: 'POST',
                 headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-                body: new URLSearchParams({ action: 'login', username, password })
+                body: new URLSearchParams({ username, password })
             })
-            .then(response => response.json())
-            .then(data => {
-                if (data.success) {
-                    if (data.department === 'HR Department') {
-                        loginContainer.classList.add('hidden');
-                        hrMainContainer.classList.remove('hidden');
-                    } else if (data.department === 'IT Department' || data.department === 'Finance Department') {
-                        loginContainer.classList.add('hidden');
-                        employeeMainContainer.classList.remove('hidden');
-                    }
-                } else {
-                    alert(data.message);
-                }
-            })
-            .catch(error => {
-                console.error('Error:', error);
-            });
-            userIcon.addEventListener('click', function() {
-                    hrMainContainer.classList.add('hidden');
-                    employeeMainContainer.classList.add('hidden');
-                    loginContainer.classList.remove('hidden');
+                    .then(response => response.json())
+                    .then(data => {
+                        if (data.success) {
+                            if (data.department === 'HR Department') {
+                                loginContainer.classList.add('hidden');
+                                hrMainContainer.classList.remove('hidden');
+                            } else if (data.department === 'IT Department' || data.department === 'Finance Department') {
+                                loginContainer.classList.add('hidden');
+                                employeeMainContainer.classList.remove('hidden');
+                            }
+                        } else {
+                            alert(data.message);
+                        }
+                    })
+                    .catch(error => {
+                        console.error('Error:', error);
+                    });
+                    userIcon.addEventListener('click', function() { // logout
+                            hrMainContainer.classList.add('hidden');
+                            employeeMainContainer.classList.add('hidden');
+                            loginContainer.classList.remove('hidden');
+                        });
                 });
-        });
-    });
+            });
 
-        // EMPLOYEE SIDE // 
-
+        // EMPLOYEE SIDE
+                
+    
 
     </script>
     </body>
