@@ -27,6 +27,7 @@
 		echo "Connection failed: " . $e->getMessage();
 	}
     
+$selectedEmployeeID = null;
   // LOGIN
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['action'] === 'login') {
     $username = $_POST['username'] ?? '';
@@ -39,7 +40,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
     }
 
     // Fetch user credentials from the database
-    $stmt = $pdo->prepare("SELECT uc.username, uc.password, e.department, e.employeeID
+    $stmt = $pdo->prepare("SELECT uc.username, uc.password, e.department, e.employeeID, e.position, 
+                            e.firstName, e.lastName, e.contactInformation
                            FROM UserCredentials uc
                            JOIN employee e ON uc.employeeID = e.employeeID
                            WHERE uc.username = :username");
@@ -50,10 +52,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
         // Compare the plain text password directly
         if ($password === $user['password']) {
             // Send employeeID to JavaScript
+            $selectedEmployeeID = $user['employeeID'];
             echo json_encode([
                 'success' => true,
                 'employeeID' => $user['employeeID'],
-                'department' => $user['department']
+                'department' => $user['department'],
+                'employeeName' => $user['firstName'] . ' ' . $user['lastName'],
+                'contactInformation' => $user['contactInformation'],
+                'position' => $user['position']
             ]);
         } else {
             echo json_encode(['success' => false, 'message' => 'Invalid username or password']);
@@ -103,25 +109,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
     }
     exit;
 }
-
-
-    // EMPLOYEE SIDE
-    // Fetch employee information from the database
-    $selectedEmployeeID = 8; // Example employee ID, you can dynamically set this
-    $query = "SELECT * FROM employee WHERE employeeID = :selectedEmployeeID";
-    $statement = $pdo->prepare($query);
-    $statement->execute(['selectedEmployeeID' => $selectedEmployeeID]);
-    $employeeData = $statement->fetch();
-
-    if ($employeeData) {
-        $employeeFullName = $employeeData['firstName'] . ' ' . $employeeData['lastName'];
-        $jobTitle = $employeeData['position'];
-        $workDepartment = $employeeData['department'];
-        $contactInfo = $employeeData['contactInformation'];
-    } else {
-        echo "Employee not found.";
-        exit;
-    }
 
     // Fetch attendance records for the specified employee
     $query = "SELECT date, TimeIn, TimeOut, hoursWorked FROM attendance WHERE employeeID = :empId ORDER BY date DESC";
@@ -1536,10 +1523,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
         <div class="profile">
             <img src="hanni.jpg" alt="Profile Picture" height="100%" align="left">
             <div class="profile-info">
-                <h2><?php echo $employeeFullName; ?></h2>
-                <p><?php echo $jobTitle; ?></p>
-                <p><?php echo $workDepartment; ?></p>
-                <p><?php echo $contactInfo; ?></p>
+                <h2 id = "employeeFullName">Burat</h2>
+                <p id = "jobTitle">Buratin</p>
+                <p id = "workDepartment">buburat</p>
+                <p id = "employeeContactInformation">bubububu</p>
             </div>
             <div class="profile-time-container">
                 <div class="profile-time" id="profile-time">
@@ -1800,7 +1787,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
 
         // Function to populate the table dynamically
         function populateEmployeeTable(departmentFilter = null) {
-            fetch('index.php?action=getEmployees')
+            fetch('progress.php?action=getEmployees')
                 .then(response => response.json())
                 .then(data => {
                     // Clear existing rows
@@ -1850,7 +1837,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
                     console.log(employeeId);
 
                     // Fetch combined employee data
-                    fetch(`index.php?fetchEmployeeData=true&employeeID=${employeeId}`)
+                    fetch(`progress.php?fetchEmployeeData=true&employeeID=${employeeId}`)
                         .then((response) => response.json())
                         .then((data) => {
                             if (data.success) {
@@ -1933,7 +1920,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
             }
 
             // Send data to the server
-            fetch('index.php', {
+            fetch('progress.php', {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
@@ -2013,7 +2000,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
                 return;
             }
 
-            fetch("index.php", {
+            fetch("progress.php", {
                 method: "POST",
                 headers: {
                     "Content-Type": "application/json",
@@ -2113,7 +2100,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
             formData.append("leaveID", leaveID);
             formData.append("leaveStatus", leaveStatus);
 
-            fetch("index.php", {
+            fetch("progress.php", {
                 method: "POST",
                 body: formData,
             })
@@ -2221,7 +2208,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
         });
 
         function populatePayrollTable(departmentFilter = null){
-            fetch('index.php?action=getPayslips')
+            fetch('progress.php?action=getPayslips')
                 .then(response => response.json())
                 .then(data => {
                     // Clear existing rows
@@ -2263,7 +2250,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
                 icon.addEventListener("click", function (event) {
                     var payslip_id = icon.getAttribute('data-payslip-id'); // Get the payslip ID from the data attribute
                     // Fetch payslip data from the server using AJAX
-                    fetch('index.php', {
+                    fetch('progress.php', {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
                         body: JSON.stringify({ action: 'fetchPayslipDetails', payrollID: payslip_id }) // Send the payslipID to the backend
@@ -2364,7 +2351,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
         inputEmployeeID.addEventListener('blur', function () {
             const employeeID = inputEmployeeID.value.trim();
             if (employeeID) {
-                fetch('index.php', {
+                fetch('progress.php', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ action: 'fetchEmployeeDetails', employeeID })
@@ -2386,7 +2373,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
 
         // Disable unavailable dates in the date picker
         function disableUnavailableDates(employeeID) {
-            fetch('index.php', {
+            fetch('progress.php', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ action: 'fetchUnavailableDates', employeeID })
@@ -2433,7 +2420,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
 
         // When valid dates are entered, calculate hours worked
         function calculateHoursWorked(employeeID, startDate, endDate) {
-            fetch('index.php', {
+            fetch('progress.php', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ action: 'fetchHoursWorked', employeeID, startDate, endDate })
@@ -2507,7 +2494,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
                 paymentDate: formattedDate
             };
 
-            fetch('index.php', {
+            fetch('progress.php', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ action: 'generatePayslip', payslipData })
@@ -2713,7 +2700,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
         }
 
         // Send login data to the server
-        fetch('http://localhost/workflow2Copy/index.php', { // change URL
+        fetch('http://localhost/infosec_proj/progress.php', { // change URL
             method: 'POST',
             headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
             body: new URLSearchParams({ action: 'login', username, password })
@@ -2725,7 +2712,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
             if (data.success) {
                 // Save employee ID
                 employeeID = data.employeeID;
-
+                //Populate Dynamic Employee Details
+                console.log(data.employeeID);
+                document.getElementById("employeeFullName").innerText = data.employeeName;
+                document.getElementById("jobTitle").innerText = data.position;
+                document.getElementById("workDepartment").innerText = data.department;
+                document.getElementById("employeeContactInformation").innerText = data.contactInformation;
+                
                 // Hide login container and show the relevant main container based on department
                 loginContainer.classList.add('hidden');
                 if (data.department === 'HR Department') {
@@ -2794,7 +2787,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
             confirmLeaveModal.style.display = 'none';
 
             // Submit the leave request to the server
-            fetch('http://localhost/workflow2Copy/index.php', { // change URL
+            fetch('http://localhost/infosec_proj/progress.php', { // change URL
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/x-www-form-urlencoded'  // URL-encoded content type
