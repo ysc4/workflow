@@ -96,8 +96,7 @@
                                 SET TimeOut = CURRENT_TIMESTAMP, hoursWorked = TIMESTAMPDIFF(HOUR, TimeIn, CURRENT_TIMESTAMP)
                                 WHERE employeeID = :employeeID
                                 AND date = CURDATE()
-                                AND TimeOut = '00:00:00'
-                                OR TimeOut > '17:00:00'
+                                AND TimeOut = '00:00:00'OR TimeOut > '17:00:00'
                                 ORDER BY attendanceID DESC LIMIT 1";
                 $stmt = $pdo->prepare($updateQuery);
                 $stmt->execute(['employeeID' => $employeeID]);
@@ -151,7 +150,7 @@
             exit;
         }
 
-        if ($startDate < $endDate) {
+        if ($startDate < $endDate && $startDate >= date('Y-m-d')) {
             try {
                 // Insert the leave request into the database
                 $stmt = $pdo->prepare("INSERT INTO leaverequest (leaveType, startDate, endDate, employeeID, leaveStatus) 
@@ -174,7 +173,7 @@
                 echo json_encode(['success' => false, 'message' => 'Error: ' . $e->getMessage()]);
             }
         } else {
-            echo json_encode(['success' => false, 'message' => 'End date must be greater than start date.']);
+            echo json_encode(['success' => false, 'message' => 'End date must be greater than start date and start date must be in the future.']);
         }
         exit;
     }
