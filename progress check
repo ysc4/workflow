@@ -1,9 +1,9 @@
 <?php
 	$host = ''; // Hostname or IP address
 	$db = 'u415861906_infosec2222'; // Database name
-	$user = 'root'; // MySQL username
-    $port = 3307;
-	$pass = ''; // MySQL password
+	$user = 'Jerico'; // MySQL username
+    $port = 3308;
+	$pass = '12182003'; // MySQL password
 	$charset = 'utf8mb4'; // Character set (optional but recommended)
 
 	try {
@@ -1787,7 +1787,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
 
         // Function to populate the table dynamically
         function populateEmployeeTable(departmentFilter = null) {
-            fetch('progress.php?action=getEmployees')
+            fetch('index.php?action=getEmployees')
                 .then(response => response.json())
                 .then(data => {
                     // Clear existing rows
@@ -1837,7 +1837,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
                     console.log(employeeId);
 
                     // Fetch combined employee data
-                    fetch(`progress.php?fetchEmployeeData=true&employeeID=${employeeId}`)
+                    fetch(`index.php?fetchEmployeeData=true&employeeID=${employeeId}`)
                         .then((response) => response.json())
                         .then((data) => {
                             if (data.success) {
@@ -1920,7 +1920,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
             }
 
             // Send data to the server
-            fetch('progress.php', {
+            fetch('index.php', {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
@@ -2000,7 +2000,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
                 return;
             }
 
-            fetch("progress.php", {
+            fetch("index.php", {
                 method: "POST",
                 headers: {
                     "Content-Type": "application/json",
@@ -2100,7 +2100,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
             formData.append("leaveID", leaveID);
             formData.append("leaveStatus", leaveStatus);
 
-            fetch("progress.php", {
+            fetch("index.php", {
                 method: "POST",
                 body: formData,
             })
@@ -2208,7 +2208,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
         });
 
         function populatePayrollTable(departmentFilter = null){
-            fetch('progress.php?action=getPayslips')
+            fetch('index.php?action=getPayslips')
                 .then(response => response.json())
                 .then(data => {
                     // Clear existing rows
@@ -2250,7 +2250,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
                 icon.addEventListener("click", function (event) {
                     var payslip_id = icon.getAttribute('data-payslip-id'); // Get the payslip ID from the data attribute
                     // Fetch payslip data from the server using AJAX
-                    fetch('progress.php', {
+                    fetch('index.php', {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
                         body: JSON.stringify({ action: 'fetchPayslipDetails', payrollID: payslip_id }) // Send the payslipID to the backend
@@ -2351,7 +2351,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
         inputEmployeeID.addEventListener('blur', function () {
             const employeeID = inputEmployeeID.value.trim();
             if (employeeID) {
-                fetch('progress.php', {
+                fetch('index.php', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ action: 'fetchEmployeeDetails', employeeID })
@@ -2373,7 +2373,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
 
         // Disable unavailable dates in the date picker
         function disableUnavailableDates(employeeID) {
-            fetch('progress.php', {
+            fetch('index.php', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ action: 'fetchUnavailableDates', employeeID })
@@ -2420,7 +2420,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
 
         // When valid dates are entered, calculate hours worked
         function calculateHoursWorked(employeeID, startDate, endDate) {
-            fetch('progress.php', {
+            fetch('index.php', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ action: 'fetchHoursWorked', employeeID, startDate, endDate })
@@ -2494,7 +2494,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
                 paymentDate: formattedDate
             };
 
-            fetch('progress.php', {
+            fetch('index.php', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ action: 'generatePayslip', payslipData })
@@ -2700,7 +2700,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
         }
 
         // Send login data to the server
-        fetch('http://localhost/infosec_proj/progress.php', { // change URL
+        fetch('http://localhost/Lim/index.php', { // change URL
             method: 'POST',
             headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
             body: new URLSearchParams({ action: 'login', username, password })
@@ -2782,8 +2782,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
 
     // Handle confirmation of the leave request
     confirmLeaveButton.addEventListener('click', function () {
+        if (requestData) {
+            // Close the modal before submitting data
+            confirmLeaveModal.style.display = 'none';
+
             // Submit the leave request to the server
-            fetch('http://localhost/infosec_proj/progress.php', { // change URL
+            fetch('http://localhost/Lim/index.php', { // change URL
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/x-www-form-urlencoded'  // URL-encoded content type
@@ -2810,6 +2814,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
                 console.error('Error during fetch:', error);
                 alert('An error occurred while submitting your leave request.');
             });
+        }
+    });
+
+    // Prevent clicks inside the modal content from closing the modal or submitting
+    confirmLeaveModal.addEventListener('click', function(event) {
+        if (event.target === confirmLeaveModal) {
+            event.stopPropagation();  // Stop the click event from propagating to modal content
+        }
     });
 });
 
