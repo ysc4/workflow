@@ -95,13 +95,10 @@
                 $updateQuery = "UPDATE attendance 
                                 SET TimeOut = CURRENT_TIMESTAMP 
                                 WHERE employeeID = :employeeID
+                                AND TimeOut = '00:00:00'
                                 ORDER BY attendanceID DESC LIMIT 1";
                 $stmt = $pdo->prepare($updateQuery);
                 $stmt->execute(['employeeID' => $employeeID]);
-
-                // Destroy the session
-                session_unset();
-                session_destroy();
 
                 // Respond with success
                 echo json_encode(['success' => true, 'message' => 'Logout successful']);
