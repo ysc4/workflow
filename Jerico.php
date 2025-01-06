@@ -276,6 +276,21 @@
         exit();
     }
 
+    // Delete leave request employee
+    if ($_SERVER['REQUEST_METHOD'] === 'DELETE' && isset($_GET['action']) && $_GET['action'] === 'deleteLeave') {
+        header('Content-Type: application/json');
+        $leaveID = $_GET['leaveID'];
+
+        try {
+            $stmt = $pdo->prepare("DELETE FROM leaverequest WHERE leaveID = :leaveID");
+            $stmt->execute(['leaveID' => $leaveID]);
+            echo json_encode(['success' => true, 'message' => 'Leave request deleted successfully.']);
+        } catch (PDOException $e) {
+            echo json_encode(['success' => false, 'message' => 'Error: ' . $e->getMessage()]);
+        }
+        exit();
+    }
+
 
     // HR SIDE
     if ($_SERVER['REQUEST_METHOD'] === 'GET' && isset($_GET['action']) && $_GET['action'] === 'getEmployees') {
@@ -388,7 +403,7 @@
                 
                 
             // Fetch leave history
-            $leaveSql = "SELECT leaveType, startDate, endDate, DATEDIFF(endDate, startDate) + 1 AS days
+            $leaveSql = "SELECT leaveID, leaveType, startDate, endDate, DATEDIFF(endDate, startDate) + 1 AS days
                          FROM leaverequest WHERE employeeID = ?";
             $stmt = $pdo->prepare($leaveSql);
             $stmt->execute([$employeeID]);
@@ -1682,6 +1697,7 @@
             <h2>Leave History</h2>
                 <table>
                     <thead>
+                        <th>LEAVE ID</th>
                         <th>START DATE</th>
                         <th>END DATE</th>
                         <th>LEAVE TYPE</th>
@@ -1760,12 +1776,13 @@
                 <span class="close">&times;</span>
                 <h2>Leave Details</h2>
                 <hr>
+                <p id="viewLeaveID">Leave ID:</p>
                 <p id="viewLeaveStartDate">From:</p>
                 <p id="viewLeaveEndDate">To:</p>
                 <p id="viewTypeOfLeave">Kind of Leave:</p>
                 <p id="viewLeaveStatus">Status:</p>
                 <div class="button-container">
-                    <button id="delete-leave" class="submit">Cancel</button>
+                    <button id="delete-leave" class="submit">Delete Request</button>
                 </div>
             </div>
         </div>
@@ -2679,6 +2696,7 @@
     const confirmLeaveModal = document.getElementById('confirmLeaveModal');
     const closeButtons = document.querySelectorAll('.close');
     const cancelLeaveButton = document.getElementById('cancel-leave');
+    const deleteLeaveButton = document.getElementById('delete-leave');
     
     // Elements related to login form
     const loginButton = document.querySelector('.login-form button');
@@ -2761,6 +2779,7 @@
                 data.forEach(leaveEntry => {
                     const row = document.createElement('tr');
                     row.innerHTML = `
+                        <td>${leaveEntry.leaveID}</td>
                         <td>${leaveEntry.startDate}</td>
                         <td>${leaveEntry.endDate}</td>
                         <td>${leaveEntry.leaveType}</td>
@@ -2794,6 +2813,7 @@
                         console.log(data);
                         
                         // Set the leave details in the modal (replace with actual data)
+                        document.getElementById('viewLeaveID').innerText = `Leave ID: ${data.leave.leaveID}`; // Replace with actual data
                         document.getElementById('viewLeaveStartDate').innerText = `From: ${data.leave.startDate}` // Replace with actual data
                         document.getElementById('viewLeaveEndDate').innerText = `To: ${data.leave.endDate}`; // Replace with actual data
                         document.getElementById('viewTypeOfLeave').innerText = `Kind of Leave: ${data.leave.leaveType}`; // Replace with actual data
@@ -2964,6 +2984,37 @@
         })
         .catch(error => {
             console.error('Error during logout:', error);
+        });
+    });
+
+    // Handle the delete leave button click of the leave details modal
+    deleteLeaveButton.addEventListener('click', function() {
+        alert('Delete button clicked');
+
+        // Fetch the leave ID from the modal
+        const leaveID = document.getElementById('viewLeaveID').innerText.split(': ')[1];
+        
+        // Send the leave ID to the server to delete the leave
+        fetch('http://localhost/Lim/index.php?action=deleteLeave&leaveID=' + leaveID, {
+            method: 'DELETE',
+            headers: { 'Content-Type': 'application/x-www-form-urlencoded' }
+        })
+        .then(response => response.json())
+        .then(data => {
+            console.log('Delete leave response:', data); // Debugging the response
+            if (data.success) {
+                // Hide the leave details modal
+                document.getElementById('leaveDetailsModal').style.display = 'none';
+                // Refresh the leave history table
+                populateLeaveHistory();
+                alert('Leave deleted successfully!');
+            } else {
+                alert('Failed to delete leave: ' + data.message);
+            }
+            })
+        .catch(error => {
+            console.error('Error during delete leave:', error);
+            alert('An error occurred while deleting the leave.');
         });
     });
 
