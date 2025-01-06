@@ -1738,7 +1738,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
 
 
         <div id="confirmLeaveModal" class="modal">
-            <div class="modal-content" id="confirm-leave">
+            <div class="modal-content">
                 <span class="close">&times;</span>
                 <h2>Confirm Leave Request</h2>
                 <hr>
@@ -2782,10 +2782,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
 
     // Handle confirmation of the leave request
     confirmLeaveButton.addEventListener('click', function () {
-        if (requestData) {
-            // Close the modal before submitting data
-            confirmLeaveModal.style.display = 'none';
-
             // Submit the leave request to the server
             fetch('http://localhost/infosec_proj/progress.php', { // change URL
                 method: 'POST',
@@ -2814,14 +2810,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
                 console.error('Error during fetch:', error);
                 alert('An error occurred while submitting your leave request.');
             });
-        }
-    });
-
-    // Prevent clicks inside the modal content from closing the modal or submitting
-    confirmLeaveModal.addEventListener('click', function(event) {
-        if (event.target === confirmLeaveModal) {
-            event.stopPropagation();  // Stop the click event from propagating to modal content
-        }
     });
 });
 
