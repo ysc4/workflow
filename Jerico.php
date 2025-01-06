@@ -95,6 +95,7 @@
                 $updateQuery = "UPDATE attendance 
                                 SET TimeOut = CURRENT_TIMESTAMP, hoursWorked = TIMESTAMPDIFF(HOUR, TimeIn, CURRENT_TIMESTAMP)
                                 WHERE employeeID = :employeeID
+                                AND date = CURDATE()
                                 AND TimeOut = '00:00:00'
                                 OR TimeOut > '17:00:00'
                                 ORDER BY attendanceID DESC LIMIT 1";
@@ -150,26 +151,30 @@
             exit;
         }
 
-        try {
-            // Insert the leave request into the database
-            $stmt = $pdo->prepare("INSERT INTO leaverequest (leaveType, startDate, endDate, employeeID, leaveStatus) 
-                                    VALUES (:leaveType, :startDate, :endDate, :employeeID, 'Pending')");
-            $stmt->execute([
-                'leaveType' => $leaveType,
-                'startDate' => $startDate,
-                'endDate' => $endDate,
-                'employeeID' => $employeeID
-            ]);
+        if ($startDate < $endDate) {
+            try {
+                // Insert the leave request into the database
+                $stmt = $pdo->prepare("INSERT INTO leaverequest (leaveType, startDate, endDate, employeeID, leaveStatus) 
+                                        VALUES (:leaveType, :startDate, :endDate, :employeeID, 'Pending')");
+                $stmt->execute([
+                    'leaveType' => $leaveType,
+                    'startDate' => $startDate,
+                    'endDate' => $endDate,
+                    'employeeID' => $employeeID
+                ]);
 
-            // Success response
-            echo json_encode([
-                'success' => true,
-                'message' => 'Leave request submitted successfully.',
-                'leaveStatus' => 'Pending' // Default status
-            ]);
-        } catch (PDOException $e) {
-            // Handle database error
-            echo json_encode(['success' => false, 'message' => 'Error: ' . $e->getMessage()]);
+                // Success response
+                echo json_encode([
+                    'success' => true,
+                    'message' => 'Leave request submitted successfully.',
+                    'leaveStatus' => 'Pending' // Default status
+                ]);
+            } catch (PDOException $e) {
+                // Handle database error
+                echo json_encode(['success' => false, 'message' => 'Error: ' . $e->getMessage()]);
+            }
+        } else {
+            echo json_encode(['success' => false, 'message' => 'End date must be greater than start date.']);
         }
         exit;
     }
@@ -1761,7 +1766,7 @@
                 <p id="viewTypeOfLeave">Kind of Leave:</p>
                 <p id="viewLeaveStatus">Status:</p>
                 <div class="button-container">
-                    <button id="cancel-leave" class="submit">Cancel</button>
+                    <button id="delete-leave" class="submit">Cancel</button>
                 </div>
             </div>
         </div>
