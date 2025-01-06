@@ -93,7 +93,7 @@
             try {
                 // Update the attendance record with the current timestamp as TimeOut
                 $updateQuery = "UPDATE attendance 
-                                SET TimeOut = CURRENT_TIMESTAMP 
+                                SET TimeOut = CURRENT_TIMESTAMP, hoursWorked = TIMESTAMPDIFF(HOUR, TimeIn, CURRENT_TIMESTAMP)
                                 WHERE employeeID = :employeeID
                                 AND TimeOut = '00:00:00'
                                 ORDER BY attendanceID DESC LIMIT 1";
@@ -1607,12 +1607,7 @@
                 <p id = "employeeContactInformation">Default</p>
             </div>
             <div class="profile-time-container">
-                <div class="profile-time" id="profile-time">
-                </div>
-                <div class="button-container">
-                    <button onclick="recordTimein()">TIME IN</button>
-                    <button onclick="recordTimeout()">TIME OUT</button>
-                </div>
+                <div class="profile-time" id="profile-time"></div>
             </div>
         </div>
 
@@ -2638,14 +2633,6 @@
 
         setInterval(updateTime, 1000); // Update time every second
         updateTime(); // Initial call to display time immediately
-
-        function recordTimein() {
-            alert('Time in recorded!');
-        }
-
-        function recordTimeout() {
-            alert('Time out recorded!');
-        }
 
         // Add active class to the first navigation
         document.getElementById('user-leave_nav').addEventListener('click', function() {
