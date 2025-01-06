@@ -96,6 +96,7 @@
                                 SET TimeOut = CURRENT_TIMESTAMP, hoursWorked = TIMESTAMPDIFF(HOUR, TimeIn, CURRENT_TIMESTAMP)
                                 WHERE employeeID = :employeeID
                                 AND TimeOut = '00:00:00'
+                                OR TimeOut > '17:00:00'
                                 ORDER BY attendanceID DESC LIMIT 1";
                 $stmt = $pdo->prepare($updateQuery);
                 $stmt->execute(['employeeID' => $employeeID]);
@@ -2772,6 +2773,7 @@
             });
     }
 
+    
     function attachViewLeaveListeners() {
         document.querySelectorAll(".view-leave-icon").forEach(function (icon) {
             icon.addEventListener("click", function (event) {
