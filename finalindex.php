@@ -1,9 +1,9 @@
 <?php
 	$host = ''; // Hostname or IP address
 	$db = 'u415861906_infosec2222'; // Database name
-	$user = 'Jerico'; // MySQL username
-    $port = 3308;
-	$pass = '12182003'; // MySQL password
+	$user = 'root'; // MySQL username
+    $port = 3307;
+	$pass = ''; // MySQL password
 	$charset = 'utf8mb4'; // Character set (optional but recommended)
 
 	try {
