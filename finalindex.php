@@ -29,7 +29,6 @@
     session_start();
     // LOGIN
     if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['action'] === 'login') {
-        header('Content-Type: application/json');
         $username = $_POST['username'] ?? '';
         $password = $_POST['password'] ?? '';
 
@@ -88,7 +87,6 @@
 
     // LOGOUT
     if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['action'] === 'logout') {
-        header('Content-Type: application/json');
         $employeeID = $_SESSION['employeeID'] ?? null;
 
         if ($employeeID) {
@@ -140,7 +138,6 @@
 
     // LEAVE REQUEST (without session, using POST)
     if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['action'] === 'requestLeave') {
-        header('Content-Type: application/json');
         // Get leave request data from POST
         $leaveType = $_POST['leaveType'] ?? '';
         $startDate = $_POST['startDate'] ?? '';
@@ -2920,8 +2917,8 @@
         // Send login data to the server
         fetch('index.php', { // change URL
             method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: new JSON.stringify({ action: 'login', username, password })
+            headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+            body: new URLSearchParams({ action: 'login', username, password })
         })
         .then(response => response.json())
         .then(data => {
@@ -2965,8 +2962,8 @@
         // Make an API call to log out the user
         fetch('index.php', { // Change URL as needed
             method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: new JSON.stringify({ action: 'logout' }),
+            headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+            body: new URLSearchParams({ action: 'logout' }),
         })
         .then(response => response.json())
         .then(data => {
@@ -3000,7 +2997,7 @@
         // Send the leave ID to the server to delete the leave
         fetch('index.php?action=deleteLeave&leaveID=' + leaveID, {
             method: 'DELETE',
-            headers: { 'Content-Type': 'application/json' }
+            headers: { 'Content-Type': 'application/x-www-form-urlencoded' }
         })
         .then(response => response.json())
         .then(data => {
@@ -3069,9 +3066,9 @@
             fetch('index.php', { // change URL
                 method: 'POST',
                 headers: {
-                    'Content-Type': 'application/json'  // URL-encoded content type
+                    'Content-Type': 'application/x-www-form-urlencoded'  // URL-encoded content type
                 },
-                body: new JSON.stringify({
+                body: new URLSearchParams({
                     action: 'requestLeave',  // Identify the action on the server
                     leaveType: requestData.leaveType,
                     startDate: requestData.startDate,
