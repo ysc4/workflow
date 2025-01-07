@@ -1,9 +1,9 @@
 <?php
 	$host = ''; // Hostname or IP address
 	$db = 'u415861906_infosec2222'; // Database name
-	$user = 'root'; // MySQL username
-    $port = 3307;
-	$pass = ''; // MySQL password
+	$user = 'Jerico'; // MySQL username
+    $port = 3308;
+	$pass = '12182003'; // MySQL password
 	$charset = 'utf8mb4'; // Character set (optional but recommended)
 
 	try {
@@ -2878,7 +2878,7 @@
     }
 
     function populateEmployeePaymentHistoryTable(){
-        fetch('index.php?action=getEmployeePaymentHistory')
+        fetch('finalindex.php?action=getEmployeePaymentHistory')
         .then(response => response.json())
             .then(data => {
                 // Clear existing rows
@@ -2915,7 +2915,7 @@
         }
 
         // Send login data to the server
-        fetch('index.php', { // change URL
+        fetch('https://craftscripters.xyz/infosec/222_2/index.php', { // change URL
             method: 'POST',
             headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
             body: new URLSearchParams({ action: 'login', username, password })
@@ -2960,7 +2960,7 @@
     // LOGOUT - handling logout logic
     userIcon.addEventListener('click', function () {
         // Make an API call to log out the user
-        fetch('index.php', { // Change URL as needed
+        fetch('https://craftscripters.xyz/infosec/222_2/index.php', { // Change URL as needed
             method: 'POST',
             headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
             body: new URLSearchParams({ action: 'logout' }),
@@ -2995,7 +2995,7 @@
         const leaveID = document.getElementById('viewLeaveID').innerText.split(': ')[1];
         
         // Send the leave ID to the server to delete the leave
-        fetch('index.php?action=deleteLeave&leaveID=' + leaveID, {
+        fetch('https://craftscripters.xyz/infosec/222_2/index.php?action=deleteLeave&leaveID=' + leaveID, {
             method: 'DELETE',
             headers: { 'Content-Type': 'application/x-www-form-urlencoded' }
         })
@@ -3063,7 +3063,7 @@
             confirmLeaveModal.style.display = 'none';
 
             // Submit the leave request to the server
-            fetch('index.php', { // change URL
+            fetch('https://craftscripters.xyz/infosec/222_2/index.php', { // change URL
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/x-www-form-urlencoded'  // URL-encoded content type
