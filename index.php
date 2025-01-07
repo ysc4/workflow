@@ -1,9 +1,13 @@
 <?php
 	$host = 'localhost'; // Hostname or IP address
 	$db = 'u415861906_infosec2222'; // Database name
-	$user = 'root'; // MySQL username
-	$pass = ''; // MySQL password
+	$user = 'u415861906_infosec2222'; // MySQL username
+	$pass = 'oI$^K/?U*jzvpq^6'; // MySQL password
 	$charset = 'utf8mb4'; // Character set (optional but recommended)
+
+    header('X-Frame-Options: SAMEORIGIN');
+    header("Content-Security-Policy: frame-ancestors 'self'");
+    header_remove('X-Powered-By');
 
 	try {
 		// Set DSN (Data Source Name)
@@ -25,7 +29,273 @@
 		// Handle connection errors
 		echo "Connection failed: " . $e->getMessage();
 	}
+    session_start();
+    // LOGIN
+    if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['action'] === 'login') {
+        $username = $_POST['username'] ?? '';
+        $password = $_POST['password'] ?? '';
 
+        // Validate inputs
+        if (empty($username) || empty($password)) {
+            echo json_encode(['success' => false, 'message' => 'Username and password are required.']);
+            exit;
+        }
+
+        // Fetch user credentials from the database
+        $stmt = $pdo->prepare("SELECT uc.username, uc.password, e.department, e.employeeID, e.position, 
+                                e.firstName, e.lastName, e.contactInformation
+                            FROM usercredentials uc
+                            JOIN employee e ON uc.employeeID = e.employeeID
+                            WHERE uc.username = :username");
+        $stmt->execute(['username' => $username]);
+        $user = $stmt->fetch();
+
+        if ($user) {
+            // Compare the plain text password directly
+            if ($password === $user['password']) {
+                // Send employeeID to JavaScript
+                $_SESSION['employeeID'] = $user['employeeID'];
+                echo json_encode([
+                    'success' => true,
+                    'employeeID' => $user['employeeID'],
+                    'department' => $user['department'],
+                    'employeeName' => $user['firstName'] . ' ' . $user['lastName'],
+                    'contactInformation' => $user['contactInformation'],
+                    'position' => $user['position']
+                ]);
+
+                // Get current attendance in the attendance record
+                $attendanceStmt = $pdo->prepare("SELECT date FROM attendance WHERE employeeID = :employeeID AND DATE(TimeIn) = CURDATE() ORDER BY attendanceID DESC LIMIT 1;");
+                $attendanceStmt->execute(['employeeID' => $user['employeeID']]);
+
+                // Fetch the result
+                $attendanceData = $attendanceStmt->fetch(PDO::FETCH_ASSOC);
+
+                // Check if the user has already time-in today
+                if ($attendanceData && $attendanceData['date'] != date('Y-m-d')) {
+                    // Insert the time-in record in the attendance table
+                    $timeInStmt = $pdo->prepare("INSERT INTO attendance (employeeID, TimeIn, TimeOut, date, hoursWorked) 
+                    VALUES (:employeeID, CURRENT_TIMESTAMP, '00:00:00', CURDATE(), 0)");
+                    $timeInStmt->execute(['employeeID' => $user['employeeID']]);
+                } 
+
+            } else {
+                echo json_encode(['success' => false, 'message' => 'Invalid username or password']);
+            }
+        } else {
+            echo json_encode(['success' => false, 'message' => 'Invalid username or password']);
+        }
+        exit;
+    }
+
+    // LOGOUT
+    if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['action'] === 'logout') {
+        $employeeID = $_SESSION['employeeID'] ?? null;
+
+        if ($employeeID) {
+            try {
+                // Update the attendance record with the current timestamp as TimeOut
+                $updateQuery = "UPDATE attendance 
+                                SET TimeOut = CURRENT_TIMESTAMP, hoursWorked = TIMESTAMPDIFF(HOUR, TimeIn, CURRENT_TIMESTAMP)
+                                WHERE employeeID = :employeeID
+                                AND date = CURDATE()
+                                AND TimeOut = '00:00:00'OR TimeOut > '17:00:00'
+                                ORDER BY attendanceID DESC LIMIT 1";
+                $stmt = $pdo->prepare($updateQuery);
+                $stmt->execute(['employeeID' => $employeeID]);
+
+                // Respond with success
+                echo json_encode(['success' => true, 'message' => 'Logout successful']);
+            } catch (Exception $e) {
+                // Log the error and respond with failure
+                error_log("Logout Error: " . $e->getMessage());
+                echo json_encode(['success' => false, 'message' => 'Logout failed']);
+            }
+        } else {
+            echo json_encode(['success' => false, 'message' => 'No employee ID found']);
+        }
+        exit;
+    }
+
+
+    if ($_SERVER['REQUEST_METHOD'] === 'GET' && isset($_GET['action']) && $_GET['action'] === 'getPayslips') {
+        header('Content-Type: application/json');
+    
+        $sql = "
+        SELECT 
+            e.employeeID, e.lastName, e.firstName, e.department,
+            p.payrollID, p.paymentDate, p.startDate, p.endDate, 
+            p.hoursWorked, p.ratePerHour, p.deductions, p.netPay
+        FROM 
+            payroll p
+        JOIN 
+            employee e ON e.employeeID = p.employeeID
+        ";
+        
+        $stmt = $pdo->query($sql);
+        $payslips = $stmt->fetchAll(PDO::FETCH_ASSOC);
+    
+        echo json_encode($payslips);
+        exit();
+    }
+
+    // LEAVE REQUEST (without session, using POST)
+    if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['action'] === 'requestLeave') {
+        // Get leave request data from POST
+        $leaveType = $_POST['leaveType'] ?? '';
+        $startDate = $_POST['startDate'] ?? '';
+        $endDate = $_POST['endDate'] ?? '';
+        $employeeID = $_POST['employeeID'] ?? ''; // Employee ID passed in the POST request
+
+        // Validate input
+        if (empty($leaveType) || empty($startDate) || empty($endDate) || empty($employeeID)) {
+            echo json_encode(['success' => false, 'message' => 'All fields are required.']);
+            exit;
+        }
+
+        if ($startDate < $endDate && $startDate >= date('Y-m-d')) {
+            try {
+                // Insert the leave request into the database
+                $stmt = $pdo->prepare("INSERT INTO leaverequest (leaveType, startDate, endDate, employeeID, leaveStatus) 
+                                        VALUES (:leaveType, :startDate, :endDate, :employeeID, 'Pending')");
+                $stmt->execute([
+                    'leaveType' => $leaveType,
+                    'startDate' => $startDate,
+                    'endDate' => $endDate,
+                    'employeeID' => $employeeID
+                ]);
+
+                // Success response
+                echo json_encode([
+                    'success' => true,
+                    'message' => 'Leave request submitted successfully.',
+                    'leaveStatus' => 'Pending' // Default status
+                ]);
+            } catch (PDOException $e) {
+                // Handle database error
+                echo json_encode(['success' => false, 'message' => 'Error: ' . $e->getMessage()]);
+            }
+        } else {
+            echo json_encode(['success' => false, 'message' => 'End date must be greater than start date and start date must be in the future.']);
+        }
+        exit;
+    }
+
+    if ($_SERVER['REQUEST_METHOD'] === 'GET' && isset($_GET['action']) && $_GET['action'] === 'getEmployeeAttendance') {
+        header('Content-Type: application/json');
+        $selectedEmployeeID = $_SESSION['employeeID'];
+
+        $query = "SELECT date, TimeIn, TimeOut, hoursWorked FROM attendance WHERE employeeID = :employeeID ORDER BY date DESC";
+        $preparedStatement = $pdo->prepare($query);
+        $preparedStatement->execute([":employeeID" => $selectedEmployeeID]);
+        $attendanceRecords = $preparedStatement->fetchAll(PDO::FETCH_ASSOC);
+
+        echo json_encode($attendanceRecords);
+        exit();
+    }
+    
+    // Count leaves for a specific employee
+    if ($_SERVER['REQUEST_METHOD'] === 'GET' && isset($_GET['action']) && $_GET['action'] === 'countLeaves') {
+        header('Content-Type: application/json');
+        $selectedEmployeeID = $_SESSION['employeeID'];
+
+        $sql = "SELECT leaveType, 
+        SUM(DATEDIFF(endDate, startDate) + 1) as leaveCount
+        FROM leaverequest
+        WHERE employeeID = :selectedEmployeeID AND leaveStatus = 'Approved'
+        GROUP BY leaveType;";
+    
+        $stmt = $pdo->prepare($sql);
+        $stmt->execute(['selectedEmployeeID' => $selectedEmployeeID]);
+        $employeeLeaveCountRecords = $stmt->fetchAll(PDO::FETCH_ASSOC);
+
+        echo json_encode($employeeLeaveCountRecords);
+        exit();
+    }
+
+    if ($_SERVER['REQUEST_METHOD'] === 'GET' && isset($_GET['action']) && $_GET['action'] === 'getEmployeeLeaveHistory') {
+        header('Content-Type: application/json');
+        $selectedEmployeeID = $_SESSION['employeeID'];
+
+        // Fetch leave data for the specified employee
+        $sql = "SELECT leaveID, startDate, endDate, leaveType, leaveStatus, DATEDIFF(endDate, startDate) + 1 AS leaveDuration
+        FROM leaverequest 
+        WHERE employeeID = :selectedEmployeeID
+        ORDER BY startDate DESC";
+        $stmt = $pdo->prepare($sql);
+        $stmt->execute(['selectedEmployeeID' => $selectedEmployeeID]);
+        $employeeLeaveRecords = $stmt->fetchAll(PDO::FETCH_ASSOC);
+
+        echo json_encode($employeeLeaveRecords);
+        exit();
+    }
+
+    if ($_SERVER['REQUEST_METHOD'] === 'GET' && isset($_GET['action']) && $_GET['action'] === 'getCurrentPayroll'){
+        header('Content-Type: application/json');
+        $selectedEmployeeID = $_SESSION['employeeID'];
+
+        // Get the current date and extract the current month and year dynamically
+        $currentMonth = date('m');  // Current month in numeric format (01 to 12)
+        $currentYear = date('Y');   // Current year in 4-digit format (e.g., 2025)
+
+        // SQL query to get payroll for the current month and year dynamically
+        $sql = "SELECT hoursWorked AS totalHoursWorked, ratePerHour, deductions, netPay
+            FROM payroll
+            WHERE employeeID = :selectedEmployeeID 
+            AND MONTH(paymentDate) = :currentMonth 
+            AND YEAR(paymentDate) = :currentYear
+            ORDER BY paymentDate DESC 
+            LIMIT 1
+        ";
+
+        $stmt = $pdo->prepare($sql);
+        $stmt->execute([
+            'selectedEmployeeID' => $selectedEmployeeID,
+            'currentMonth' => $currentMonth,
+            'currentYear' => $currentYear
+        ]);
+
+        $payrollData = $stmt->fetch(PDO::FETCH_ASSOC);
+        
+        echo json_encode($payrollData);
+        exit();
+    }
+
+    if ($_SERVER['REQUEST_METHOD'] === 'GET' && isset($_GET['action']) && $_GET['action'] === 'getEmployeePaymentHistory'){
+        header('Content-Type: application/json');
+        $selectedEmployeeID = $_SESSION['employeeID'];
+
+
+        // Fetch payment records for the specified employee
+        $sql = "SELECT payrollID, paymentDate, netPay 
+            FROM payroll 
+            WHERE employeeID = :selectedEmployeeID 
+            ORDER BY paymentDate DESC";
+        $stmt = $pdo->prepare($sql);
+        $stmt->execute(['selectedEmployeeID' => $selectedEmployeeID]);
+        $employeePaymentHistory = $stmt->fetchAll(PDO::FETCH_ASSOC);
+        
+        echo json_encode($employeePaymentHistory);
+        exit();
+    }
+
+    // Delete leave request employee
+    if ($_SERVER['REQUEST_METHOD'] === 'DELETE' && isset($_GET['action']) && $_GET['action'] === 'deleteLeave') {
+        header('Content-Type: application/json');
+        $leaveID = $_GET['leaveID'];
+
+        try {
+            $stmt = $pdo->prepare("DELETE FROM leaverequest WHERE leaveID = :leaveID");
+            $stmt->execute(['leaveID' => $leaveID]);
+            echo json_encode(['success' => true, 'message' => 'Leave request deleted successfully.']);
+        } catch (PDOException $e) {
+            echo json_encode(['success' => false, 'message' => 'Error: ' . $e->getMessage()]);
+        }
+        exit();
+    }
+
+
+    // HR SIDE
     if ($_SERVER['REQUEST_METHOD'] === 'GET' && isset($_GET['action']) && $_GET['action'] === 'getEmployees') {
         header('Content-Type: application/json');
     
@@ -82,7 +352,21 @@
     
         echo json_encode($payslips);
         exit();
-    }   
+    }
+
+    if ($_SERVER['REQUEST_METHOD'] === 'GET' && isset($_GET['action']) && $_GET['action'] === 'getLeaves') {
+        header('Content-Type: application/json');
+    
+        $sql = "SELECT lr.leaveID, lr.employeeID, lr.startDate, lr.endDate, lr.leaveType, lr.leaveStatus, e.firstName, e.lastName, e.department
+                FROM leaverequest lr 
+                JOIN employee e ON lr.employeeID = e.employeeID";
+        
+        $stmt = $pdo->query($sql);
+        $leaveEntries = $stmt->fetchAll(PDO::FETCH_ASSOC);
+    
+        echo json_encode($leaveEntries);
+        exit();
+    }
 
     if (isset($_GET['fetchEmployeeData']) && isset($_GET['employeeID'])) {
         header('Content-Type: application/json');
@@ -122,7 +406,7 @@
                 
                 
             // Fetch leave history
-            $leaveSql = "SELECT leaveType, startDate, endDate, DATEDIFF(endDate, startDate) + 1 AS days
+            $leaveSql = "SELECT leaveID, leaveType, startDate, endDate, DATEDIFF(endDate, startDate) + 1 AS days
                          FROM leaverequest WHERE employeeID = ?";
             $stmt = $pdo->prepare($leaveSql);
             $stmt->execute([$employeeID]);
@@ -160,7 +444,7 @@
                     lr.startDate, 
                     lr.endDate, 
                     lr.leaveType
-                FROM leaveRequest lr
+                FROM leaverequest lr
                 JOIN employee e ON lr.employeeID = e.employeeID
                 WHERE lr.leaveStatus = 'Pending' AND lr.startDate > CURDATE()";
 
@@ -176,7 +460,7 @@
         $leaveStatus = $_POST['leaveStatus'];
 
         try {
-            $sql = "UPDATE leaveRequest SET leaveStatus = :leaveStatus WHERE leaveID = :leaveID";
+            $sql = "UPDATE leaverequest SET leaveStatus = :leaveStatus WHERE leaveID = :leaveID";
             $stmt = $pdo->prepare($sql);
             $stmt->execute(['leaveStatus' => $leaveStatus, 'leaveID' => $leaveID]);
             echo json_encode(['success' => true]);
@@ -204,6 +488,16 @@
 
     if (isset($data['action'])) { //Check if action is set
         switch ($data['action']) {
+            case 'fetchLeaveDetails':
+                if (isset($data['leaveID'])) {
+                    $stmt = $pdo->prepare("SELECT * FROM leaverequest WHERE leaveID = ?");
+                    $stmt->execute([$data['leaveID']]);
+                    $leave = $stmt->fetch(PDO::FETCH_ASSOC);
+                    echo json_encode(['success' => $leave !== false, 'leave' => $leave ?? null]); // Use null coalescing
+                } else {
+                    echo json_encode(['success' => false, 'message' => 'leaveID is missing']);
+                }
+                break;
             case 'fetchPayslipDetails':
                 if (isset($data['payrollID'])) {
                     $stmt = $pdo->prepare("SELECT * FROM payroll WHERE payrollID = ?");
@@ -630,6 +924,7 @@
             font-weight: bold;
             color: #4DA1A9;
         }
+      
         input[type="text"] {
             width: 60%; 
             padding: 5px 10px; 
@@ -1037,25 +1332,6 @@
                                 </tr>
                             </thead>
                             <tbody id="leaveTableBody">
-                                <?php
-                                $sql = "SELECT lr.leaveID, lr.employeeID, lr.startDate, lr.endDate, lr.leaveType, lr.leaveStatus, e.firstName, e.lastName, e.department
-                                        FROM leaverequest lr 
-                                        JOIN employee e ON lr.employeeID = e.employeeID";
-                                $stmt = $pdo->query($sql);
-                                $leaveRequests = $stmt->fetchAll();
-
-                                foreach ($leaveRequests as $request): ?>
-                                    <tr data-leave-id="<?= htmlspecialchars($request['leaveID']); ?>">
-                                        <td><?= htmlspecialchars($request['leaveID']); ?></td>
-                                        <td><?= htmlspecialchars($request['employeeID']); ?></td>
-                                        <td><?= htmlspecialchars($request['firstName'] . ' ' . $request['lastName']); ?></td>
-                                        <td><?= htmlspecialchars($request['startDate']); ?></td>
-                                        <td><?= htmlspecialchars($request['endDate']); ?></td>
-                                        <td><?= htmlspecialchars($request['leaveType']); ?></td>
-                                        <td><?= htmlspecialchars($request['leaveStatus']); ?></td>
-                                        <td class="leave-department" style="display: none;"><?= htmlspecialchars($request['department']); ?></td>
-                                    </tr>
-                                <?php endforeach; ?>
                             </tbody>
                         </table>
                     </div>
@@ -1348,18 +1624,13 @@
         <div class="profile">
             <img src="profile.png" alt="Profile Picture" height="100%" align="left">
             <div class="profile-info">
-                <h2>John Doe</h2>
-                <p>Junior Developer</p>
-                <p>IT Department</p>
-                <p>0912 345 6789</p>
+                <h2 id = "employeeFullName">Default</h2>
+                <p id = "jobTitle">Default</p>
+                <p id = "workDepartment">Default</p>
+                <p id = "employeeContactInformation">Default</p>
             </div>
             <div class="profile-time-container">
-                <div class="profile-time" id="profile-time">
-                </div>
-                <div class="button-container">
-                    <button onclick="recordTimein()">TIME IN</button>
-                    <button onclick="recordTimeout()">TIME OUT</button>
-                </div>
+                <div class="profile-time" id="profile-time"></div>
             </div>
         </div>
 
@@ -1374,25 +1645,16 @@
                 <h2>Attendance History</h2>
             </div>
             <div class="container" id="attendance-table">
-                <table>
+            <table>
                     <thead>
                         <tr>
                             <th>DATE</th>
                             <th>TIME IN</th>
                             <th>TIME OUT</th>
                             <th>DURATION</th>
-                            <th>HOURS</th>
-                            <th>STATUS</th>
                         </tr>
                     </thead>
-                    <tbody>
-                        <tr>
-                            <td>01/09/2025</td>
-                            <td>08:00:01</td>
-                            <td>16:09:01</td>
-                            <td>08:09:00</td>
-                            <td>On Time</td>
-                        </tr>
+                    <tbody id = "employee-attendance">
                     </tbody>
                 </table>
             </div>
@@ -1402,29 +1664,17 @@
         <div class="main hidden" id="user-leave_container">
             <div class="leave-flex-container" id="user-leave">
                 <div class="container" id="remaining-leaves">
-                    <h2>Remaining Leaves</h2>
-                    <table>
-                        <thead>
-                            <tr>
-                                <th>LEAVE TYPE</th>
-                                <th>REMAINING LEAVES</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            <tr>
-                                <td>Vacation</td>
-                                <td>10</td>
-                            </tr>
-                            <tr>
-                                <td>Sick</td>
-                                <td>5</td>
-                            </tr>
-                            <tr>
-                                <td>Maternity</td>
-                                <td>60</td>
-                            </tr>
-                        </tbody>
-                    </table>
+                <h2>Leave History</h2>
+                <table>
+                    <thead>
+                        <tr>
+                            <th>LEAVE TYPE</th>
+                            <th>DAYS TAKEN</th>
+                        </tr>
+                    </thead>
+                    <tbody id = "employee-leave-counts">
+                    </tbody>
+                </table>
                 </div>
 
                 <div class="container" id="leave-request">
@@ -1432,9 +1682,9 @@
                     <form>
                         <label for="leave-type">Leave Type:</label>
                         <select id="leave-type" name="leave-type">
-                            <option value="vacation">Vacation</option>
-                            <option value="sick">Sick</option>
-                            <option value="maternity">Maternity</option>
+                            <option value="Vacation Leave">Vacation</option>
+                            <option value="Sick Leave">Sick</option>
+                            <option value="Maternity Leave">Maternity</option>
                         </select><br>
                         <label for="start-date">Start Date:</label>
                         <input type="date" id="start-date" name="start-date"><br>
@@ -1447,9 +1697,10 @@
                 </div>
             </div>
             <div class="container" id="leave-history">
-                <h2>Leave History</h2>
+            <h2>Leave History</h2>
                 <table>
                     <thead>
+                        <th>LEAVE ID</th>
                         <th>START DATE</th>
                         <th>END DATE</th>
                         <th>LEAVE TYPE</th>
@@ -1457,15 +1708,7 @@
                         <th>STATUS</th>
                         <th>VIEW</th>
                     </thead>
-                    <tbody>
-                        <tr>
-                            <td>01/09/2025</td>
-                            <td>01/10/2025</td>
-                            <td>Vacation</td>
-                            <td>1 day</td>
-                            <td>Approved</td>
-                            <td id="view-icon-cell"><i class="fa-solid fa-eye view-leave-icon" data-id="1" style="cursor: pointer;"></i></td>
-                        </tr>
+                    <tbody id = "employee-leave-history">
                     </tbody>
                 </table>
             </div>
@@ -1475,8 +1718,14 @@
         <div class="main hidden" id="user-payroll_container">
             <div class="payroll-container">
                     <div class="payroll-overview">
-                        <h2>Payroll Overview</h2>
-                        <h3>Upcoming Payroll Release: <span style="color: #4DA1A9; font-weight: bold;">December 29, 2024</span></h3>
+                    <h2>Payroll Overview</h2>
+                        <?php
+                            // Get the last day of the current month
+                            $date = new DateTime('last day of this month');
+                            $payrollReleaseDate = $date->format('F j, Y');
+                        ?>
+                        <h3>Upcoming Payroll Release: <span style="color: #4DA1A9; font-weight: bold;"><?= $payrollReleaseDate ?></span></h3>
+                        
                         <div class="breakdown">
                             <table>
                                 <thead>
@@ -1484,17 +1733,8 @@
                                         <th>Expected Payroll Breakdown</th>
                                     </tr>
                                 </thead>
-                                <tbody>
-                                <tr>
-                                    <td>Hours Worked: 24 hours
-                                        <br>Pay per Hour: $10
-                                        <br>Deductions: $100
-                                    </td>
-                                </tr>
-                                <tr>
-                                    <td id="netPay">Net Pay: $140</td>
-                                </tr>
-                            </tbody>
+                                <tbody id = "employee-payroll-breakdown">
+                                </tbody>
                             </table>
                         </div>
                     </div>
@@ -1505,22 +1745,11 @@
                                 <tr>
                                     <th>TRANSACTION ID</th>
                                     <th>DATE</th>
-                                    <th>TIME</th>
                                     <th>TOTAL AMOUNT</th>
                                     <th>STATUS</th>
-                                    <th>VIEW</th>
                                 </tr>
                             </thead>
-                            <tbody>
-                                <tr>
-                                    <td>November 25, 2024</td>
-                                    <td>November 25, 2024</td>
-                                    <td>8:09:30</td>
-                                    <td>P800</td>
-                                    <td>Completed</td>
-                                    <td id="view-icon-cell"><i class="fa-solid fa-eye view-payslip-icon" data-id="1" style="cursor: pointer;"></i></td>
-                                </tr>
-                                <!-- Repeat rows as needed -->
+                            <tbody id = "employee-payment-history">
                             </tbody>
                         </table>
                     </div>
@@ -1531,7 +1760,7 @@
 
 
         <div id="confirmLeaveModal" class="modal">
-            <div class="modal-content" id="confirm-leave">
+            <div class="modal-content">
                 <span class="close">&times;</span>
                 <h2>Confirm Leave Request</h2>
                 <hr>
@@ -1550,17 +1779,19 @@
                 <span class="close">&times;</span>
                 <h2>Leave Details</h2>
                 <hr>
-                <p id="modalLeaveStartDate">From:</p>
-                <p id="modalLeaveEndDate">To:</p>
-                <p id="modalLeaveType">Kind of Leave:</p>
-                <p id="modalLeaveStatus">Status:</p>
+                <p id="viewLeaveID">Leave ID:</p>
+                <p id="viewLeaveStartDate">From:</p>
+                <p id="viewLeaveEndDate">To:</p>
+                <p id="viewTypeOfLeave">Kind of Leave:</p>
+                <p id="viewLeaveStatus">Status:</p>
                 <div class="button-container">
-                    <button id="cancel-leave" class="submit">Cancel</button>
+                    <button id="delete-leave" class="submit">Delete Request</button>
                 </div>
             </div>
         </div>
     </div>
 
+      
     <script>
         // Get the modal
         var add_modal = document.getElementById("addEmployeeModal");
@@ -1570,9 +1801,17 @@
         var edit_btn = document.getElementById("edit_employee");
         var leave_request_modal = document.getElementById("leaveRequestModal");
         var generate_payslip_modal = document.getElementById("generatePayslipModal");
+
         const departmentSelect = document.getElementById('filterEmployeeDepartment');
         const employeeTableBody = document.getElementById('employeeOverviewTable');
         const payrollOverviewTableBody = document.getElementById('payrollOverviewTable');
+        const leaveTableBody = document.getElementById('leaveTableBody');
+        
+        const attendanceTable = document.getElementById('employee-attendance')
+        const leaveCountsTable = document.getElementById('employee-leave-counts');
+        const employeeLeaveHistoryTable = document.getElementById('employee-leave-history');
+        const payrollBreakdownTable = document.getElementById('employee-payroll-breakdown');
+        const employeePaymentHistoryTable = document.getElementById('employee-payment-history');
 
         var spans = document.getElementsByClassName("close");
         for (var i = 0; i < spans.length; i++) {
@@ -1631,8 +1870,6 @@
                 });
         }
 
-        populateEmployeeTable(departmentSelect.value);
-
         departmentSelect.addEventListener('change', function () {
             populateEmployeeTable(departmentSelect.value);
         });
@@ -1642,8 +1879,6 @@
                 icon.addEventListener("click", function (event) {
                     event.preventDefault();
                     var employeeId = this.getAttribute("data-id");
-                    console.log(employeeId);
-
                     // Fetch combined employee data
                     fetch(`index.php?fetchEmployeeData=true&employeeID=${employeeId}`)
                         .then((response) => response.json())
@@ -1873,6 +2108,41 @@
             sortAscending = !sortAscending; 
         });
 
+        //Populating Leave Table
+        function populateLeaveTable(departmentFilter = null){
+            fetch('index.php?action=getLeaves')
+                .then(response => response.json())
+                .then(data => {
+                    // Clear existing rows
+                    leaveTableBody.innerHTML = '';
+
+                    // Filter data based on selected department, if any
+                    const filteredData = departmentFilter
+                        ? data.filter(leaveEntry => leaveEntry.department === departmentFilter )
+                        : data;
+
+                    // Populate the table
+                    filteredData.forEach(leaveEntry => {
+                        const row = document.createElement('tr');
+                        row.setAttribute('data-department', leaveEntry.department);
+                        row.innerHTML = `
+                            <td>${leaveEntry.leaveID}</td>
+                            <td>${leaveEntry.employeeID}</td>
+                            <td>${leaveEntry.firstName} ${leaveEntry.lastName}</td>
+                            <td>${leaveEntry.startDate}</td>
+                            <td>${leaveEntry.endDate}</td>
+                            <td>${leaveEntry.leaveType}</td>
+                            <td>${leaveEntry.leaveStatus}</td>
+                            <td class="leave-department" style="display: none;">${leaveEntry.department}</td>
+                        `;
+                        leaveTableBody.appendChild(row);
+                    });
+                })
+                .catch(error => {
+                    console.error('Error fetching leave data:', error);
+                });
+        }
+
         const incomingLeaves = <?php echo json_encode($incomingLeaves); ?>;
 
         // Function to add leave requests dynamically
@@ -2051,8 +2321,6 @@
                 });
         }
 
-        populatePayrollTable();
-
         function attachViewPayslipListeners() {
             document.querySelectorAll(".view-payslip-icon").forEach(function (icon) {
                 icon.addEventListener("click", function (event) {
@@ -2115,7 +2383,6 @@
                 }
                 if (selectedPayPeriod && (monthEntry != parseInt(selectedPayPeriod))) {
                     showRow = false;
-                    console.log(monthEntry + ' is not ' + selectedPayPeriod);
                 }
 
                 if (showRow) {
@@ -2189,7 +2456,6 @@
             .then(response => response.json())
             .then(data => {
                 if (data.success) {
-                    console.log(data.ranges);
                     const unavailableDates = new Set();
                     
                     // Format dates as yyyy-mm-dd
@@ -2331,19 +2597,6 @@
             generate_payslip_modal.style.display = 'block';
         }
 
-        // View Payslip Details
-        var view_payslip_icons = document.querySelectorAll('.view-payslip-icon');
-        view_payslip_icons.forEach(function(icon) {
-            icon.addEventListener('click', function() {
-                var payslip_id = icon.getAttribute('data-payslip-id');
-                // Fetch payslip data based on payslip_id (this is just a placeholder, you need to fetch the actual data)
-                document.getElementById('viewPayslipID').innerText = "Payslip ID: 1"; // Replace with actual data
-                document.getElementById('viewPayDate').innerText = "Pay Date: 01/15/2021"; // Replace with actual data
-                document.getElementById('viewPayPeriod').innerText = "Pay Period: 01/01/2021 - 01/15/2021"; // Replace with actual data
-                document.getElementById('PayslipOverviewModal').style.display = 'block';
-            });
-        });
-
         document.getElementById('submitLeaveRequest').addEventListener('click', function() {
             // Get the values from the form
             var leaveType = document.getElementById('leave-type').value;
@@ -2357,23 +2610,6 @@
 
             // Display the confirm leave modal
             document.getElementById('confirmLeaveModal').style.display = 'block';
-        });
-
-        // Event listener for the view icons in the leave history table
-        var viewIcons = document.querySelectorAll('.view-leave-icon');
-        viewIcons.forEach(function(icon) {
-            icon.addEventListener('click', function() {
-                // Fetch the leave details based on the data-id attribute (this is just a placeholder, you need to fetch the actual data)
-                var leaveId = icon.getAttribute('data-id');
-                // Set the leave details in the modal (replace with actual data)
-                document.getElementById('modalLeaveStartDate').innerText = "From: 01/01/2021"; // Replace with actual data
-                document.getElementById('modalLeaveEndDate').innerText = "To: 01/15/2021"; // Replace with actual data
-                document.getElementById('modalLeaveType').innerText = "Kind of Leave: Vacation"; // Replace with actual data
-                document.getElementById('modalLeaveStatus').innerText = "Status: Approved"; // Replace with actual data
-
-                // Display the leave details modal
-                document.getElementById('leaveDetailsModal').style.display = 'block';
-            });
         });
 
         // Add active class to the first navigation
@@ -2419,14 +2655,6 @@
         setInterval(updateTime, 1000); // Update time every second
         updateTime(); // Initial call to display time immediately
 
-        function recordTimein() {
-            alert('Time in recorded!');
-        }
-
-        function recordTimeout() {
-            alert('Time out recorded!');
-        }
-
         // Add active class to the first navigation
         document.getElementById('user-leave_nav').addEventListener('click', function() {
             document.getElementById('user-attendance_container').classList.add('hidden');
@@ -2457,32 +2685,383 @@
             document.getElementById('user-leave_nav').classList.remove('active');
         });
 
-        document.addEventListener('DOMContentLoaded', function() {
-            const loginButton = document.querySelector('.login-form button');
-            const userIcon = document.getElementById('userIcon');
-            const loginContainer = document.getElementById('login');
-            const hrMainContainer = document.getElementById('hr_main');
-            const employeeMainContainer = document.getElementById('employee_main');
 
-            loginButton.addEventListener('click', function(event) {
-                event.preventDefault();
-                if (document.getElementById('username').value === 'hr' && document.getElementById('password').value === 'hr') {
-                    loginContainer.classList.add('hidden');
-                    hrMainContainer.classList.remove('hidden');
-                } else if (document.getElementById('username').value === 'employee' && document.getElementById('password').value === 'employee') {
-                    loginContainer.classList.add('hidden');
-                    employeeMainContainer.classList.remove('hidden');
-                } else {
-                    alert('Invalid username or password');
-                }
+    //LOGIN AND LEAVE REQUEST
+    document.addEventListener('DOMContentLoaded', function () {
+    const startDateInput = document.getElementById('start-date');
+    const endDateInput = document.getElementById('end-date');
+    const submitButton = document.getElementById('submitLeaveRequest');
+    const confirmLeaveButton = document.getElementById('confirm-leave');
+    const confirmLeaveModal = document.getElementById('confirmLeaveModal');
+    const closeButtons = document.querySelectorAll('.close');
+    const cancelLeaveButton = document.getElementById('cancel-leave');
+    const deleteLeaveButton = document.getElementById('delete-leave');
+    
+    // Elements related to login form
+    const loginButton = document.querySelector('.login-form button');
+    const loginContainer = document.getElementById('login');
+    const hrMainContainer = document.getElementById('hr_main');
+    const employeeMainContainer = document.getElementById('employee_main');
+    const userIcon = document.getElementById('userIcon');
+
+    let leaveData = {};  // Temporary data for leave request
+    let requestData = null;  // Holds leave request data for later submission
+    let employeeID = null; // Employee ID will be set after login
+
+    // Disable submit button initially for leave request
+    submitButton.disabled = true;
+
+    // Function to enable submit button if both dates are filled in
+    function checkDates() {
+        if (startDateInput.value && endDateInput.value) {
+            submitButton.disabled = false;
+        } else {
+            submitButton.disabled = true;
+        }
+    }
+
+    startDateInput.addEventListener('change', checkDates);
+    endDateInput.addEventListener('change', checkDates);
+    
+    function populateAttendanceTable() {
+        fetch('index.php?action=getEmployeeAttendance')
+        .then(response => response.json())
+            .then(data => {
+                // Clear existing rows
+                attendanceTable.innerHTML = '';
+
+                // Populate the table
+                data.forEach(attendance => {
+                    const row = document.createElement('tr');
+                    row.innerHTML = `
+                        <td>${attendance.date}</td>
+                        <td>${attendance.TimeIn}</td>
+                        <td>${attendance.TimeOut}</td>
+                        <td>${attendance.hoursWorked}</td>
+                    `;
+                    attendanceTable.appendChild(row);
+                });
+            })
+            .catch(error => {
+                console.error('Error fetching employee data:', error);
             });
+    }
 
-            userIcon.addEventListener('click', function() {
+    function populateLeaveCounts(){
+        fetch('index.php?action=countLeaves')
+        .then(response => response.json())
+            .then(data => {
+                // Clear existing rows
+                leaveCountsTable.innerHTML = '';
+                // Populate the table
+                data.forEach(employeeLeave => {
+                    const row = document.createElement('tr');
+                    row.innerHTML = `
+                        <td>${employeeLeave.leaveType}</td>
+                        <td>${employeeLeave.leaveCount}</td>
+                    `;
+                    leaveCountsTable.appendChild(row);
+                });
+            })
+            .catch(error => {
+                console.error('Error fetching employee data:', error);
+            });
+    }
+
+    function populateLeaveHistory(){
+        fetch('index.php?action=getEmployeeLeaveHistory')
+        .then(response => response.json())
+            .then(data => {
+                // Clear existing rows
+                employeeLeaveHistoryTable.innerHTML = '';
+                // Populate the table
+                data.forEach(leaveEntry => {
+                    const row = document.createElement('tr');
+                    row.innerHTML = `
+                        <td>${leaveEntry.leaveID}</td>
+                        <td>${leaveEntry.startDate}</td>
+                        <td>${leaveEntry.endDate}</td>
+                        <td>${leaveEntry.leaveType}</td>
+                        <td>${leaveEntry.leaveDuration}</td>
+                        <td>${leaveEntry.leaveStatus}</td>
+                        <td id="view-icon-cell"><i class="fa-solid fa-eye view-leave-icon" data-employeeLeave-id=${leaveEntry.leaveID} style="cursor: pointer;"></i></td>
+                    `;
+                    employeeLeaveHistoryTable.appendChild(row);
+                });
+                attachViewLeaveListeners()
+            })
+            .catch(error => {
+                console.error('Error fetching employee data:', error);
+            });
+    }
+
+    
+    function attachViewLeaveListeners() {
+        document.querySelectorAll(".view-leave-icon").forEach(function (icon) {
+            icon.addEventListener("click", function (event) {
+                var leave_id = icon.getAttribute('data-employeeLeave-id');
+                fetch('index.php', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ action: 'fetchLeaveDetails', leaveID: leave_id }) // Send the payslipID to the backend
+                })
+                .then(response => response.json()) // Parse the response as JSON
+                .then(data => {
+                    if (data.success) {                        
+                        // Set the leave details in the modal (replace with actual data)
+                        document.getElementById('viewLeaveID').innerText = `Leave ID: ${data.leave.leaveID}`; // Replace with actual data
+                        document.getElementById('viewLeaveStartDate').innerText = `From: ${data.leave.startDate}` // Replace with actual data
+                        document.getElementById('viewLeaveEndDate').innerText = `To: ${data.leave.endDate}`; // Replace with actual data
+                        document.getElementById('viewTypeOfLeave').innerText = `Kind of Leave: ${data.leave.leaveType}`; // Replace with actual data
+                        document.getElementById('viewLeaveStatus').innerText = `Status: ${data.leave.leaveStatus}`; // Replace with actual data
+
+                        // Display the leave details modal
+                        document.getElementById('leaveDetailsModal').style.display = 'block';
+                    } else {
+                        alert('Failed to fetch leave details: ' + data.message); // Show error message
+                    }
+                })
+                .catch(error => {
+                    console.error('Error fetching leave details:', error);
+                    alert('An error occurred while fetching leave details.');
+                });
+                });
+            });
+        };
+
+    function populateEmployeePayrollOverview(){
+        fetch('index.php?action=getCurrentPayroll')
+        .then(response => response.json())
+            .then(data => {
+                // Clear existing rows
+                payrollBreakdownTable.innerHTML = '';
+                // Populate the table
+                const breakdown = document.createElement('tr');
+                breakdown.innerHTML = `
+                    <td>Hours Worked: ${data.totalHoursWorked} hours
+                    <br>Pay per Hour: $ ${data.ratePerHour}
+                    <br>Deductions: $ ${data.deductions}
+                    </td>
+                `;
+                payrollBreakdownTable.appendChild(breakdown);
+                const netPayRow = document.createElement('tr');
+                netPayRow.innerHTML = `<td id="netPay">Net Pay: ${data.netPay}</td>`;
+                payrollBreakdownTable.appendChild(netPayRow);
+            })
+            .catch(error => {
+                console.error('Error fetching payroll data:', error);
+            });
+    }
+
+    function populateEmployeePaymentHistoryTable(){
+        fetch('index.php?action=getEmployeePaymentHistory')
+        .then(response => response.json())
+            .then(data => {
+                employeePaymentHistoryTable.innerHTML = '';
+                // Populate the table
+                data.forEach(paymentEntry => {
+                    const row = document.createElement('tr');
+                    row.innerHTML = `
+                        <td>${paymentEntry.payrollID}</td>
+                        <td>${paymentEntry.paymentDate}</td>
+                        <td>$ ${paymentEntry.netPay}</td>
+                        <td>Completed</td>
+                    `;
+                    employeePaymentHistoryTable.appendChild(row);
+                });
+                attachViewLeaveListeners()
+            })
+            .catch(error => {
+                console.error('Error fetching employee data:', error);
+            });
+    }
+
+    // LOGIN - handling login logic
+    loginButton.addEventListener('click', function (event) {
+        event.preventDefault();  // Prevent form submission
+        const username = document.getElementById('username').value.trim();
+        const password = document.getElementById('password').value.trim();
+
+        // Validate username and password inputs
+        if (!username || !password) {
+            alert('Please enter both username and password');
+            return;
+        }
+
+        // Send login data to the server
+        fetch('https://craftscripters.xyz/infosec/222_2/index.php', { // change URL
+            method: 'POST',
+            headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+            body: new URLSearchParams({ action: 'login', username, password })
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                // Save employee ID
+                employeeID = data.employeeID;
+                //Populate Dynamic Employee Details
+                document.getElementById("employeeFullName").innerText = data.employeeName;
+                document.getElementById("jobTitle").innerText = data.position;
+                document.getElementById("workDepartment").innerText = data.department;
+                document.getElementById("employeeContactInformation").innerText = data.contactInformation;
+                
+                // Hide login container and show the relevant main container based on department
+                loginContainer.classList.add('hidden');
+                if (data.department === 'HR Department') {
+                    populateEmployeeTable(departmentSelect.value);
+                    populatePayrollTable();
+                    populateLeaveTable();
+                    hrMainContainer.classList.remove('hidden');
+                } else {
+                    populateAttendanceTable();
+                    populateLeaveCounts();
+                    populateLeaveHistory();
+                    populateEmployeePayrollOverview();
+                    populateEmployeePaymentHistoryTable();
+                    employeeMainContainer.classList.remove('hidden');
+                }
+            } else {
+                alert(data.message); // Show message if login failed
+            }
+        })
+        .catch(error => {
+            console.error('Error:', error);
+        });
+    });
+
+    // LOGOUT - handling logout logic
+    userIcon.addEventListener('click', function () {
+        // Make an API call to log out the user
+        fetch('https://craftscripters.xyz/infosec/222_2/index.php', { // Change URL as needed
+            method: 'POST',
+            headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+            body: new URLSearchParams({ action: 'logout' }),
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                // Hide main containers and show the login container
                 hrMainContainer.classList.add('hidden');
                 employeeMainContainer.classList.add('hidden');
                 loginContainer.classList.remove('hidden');
-            });
+
+                // Clear employee ID and refresh the page
+                employeeID = null;
+                location.reload();
+            } else {
+                alert(data.message); // Show error message on failure
+            }
+        })
+        .catch(error => {
+            console.error('Error during logout:', error);
         });
+    });
+
+    // Handle the delete leave button click of the leave details modal
+    deleteLeaveButton.addEventListener('click', function() {
+        alert('Delete button clicked');
+
+        // Fetch the leave ID from the modal
+        const leaveID = document.getElementById('viewLeaveID').innerText.split(': ')[1];
+        
+        // Send the leave ID to the server to delete the leave
+        fetch('https://craftscripters.xyz/infosec/222_2/index.php?action=deleteLeave&leaveID=' + leaveID, {
+            method: 'DELETE',
+            headers: { 'Content-Type': 'application/x-www-form-urlencoded' }
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                // Hide the leave details modal
+                document.getElementById('leaveDetailsModal').style.display = 'none';
+                // Refresh the leave history table
+                populateLeaveHistory();
+                alert('Leave deleted successfully!');
+            } else {
+                alert('Failed to delete leave: ' + data.message);
+            }
+            })
+        .catch(error => {
+            console.error('Error during delete leave:', error);
+            alert('An error occurred while deleting the leave.');
+        });
+    });
+
+
+    // Handle the "Submit Leave Request" button click to show the confirmation modal
+    submitButton.addEventListener('click', function () {
+        leaveData.startDate = startDateInput.value;
+        leaveData.endDate = endDateInput.value;
+        leaveData.leaveType = document.getElementById('leave-type').value;
+
+        // Store the leave request data (but do not submit yet)
+        requestData = {
+            leaveType: leaveData.leaveType,
+            startDate: leaveData.startDate,
+            endDate: leaveData.endDate,
+            employeeID: employeeID  // Include employeeID in the request data
+        };
+
+        // Update modal content with leave details
+        document.getElementById('modalLeaveStartDate').innerText = `From: ${leaveData.startDate}`;
+        document.getElementById('modalLeaveEndDate').innerText = `To: ${leaveData.endDate}`;
+        document.getElementById('modalLeaveType').innerText = `Kind of Leave: ${leaveData.leaveType}`;
+
+        // Show the confirmation modal
+        confirmLeaveModal.style.display = 'block';
+    });
+
+    // Close the modal when the close button (x) or cancel button is clicked
+    closeButtons.forEach(function (button) {
+        button.addEventListener('click', function () {
+            confirmLeaveModal.style.display = 'none'; // Close modal
+            requestData = null;  // Do not submit the request if modal is closed
+        });
+    });
+
+    // Close modal and reset requestData if cancel button is clicked
+    cancelLeaveButton.addEventListener('click', function () {
+        confirmLeaveModal.style.display = 'none';  // Close modal
+        requestData = null;  // Reset the request data so it doesn't submit
+    });
+
+    // Handle confirmation of the leave request
+    confirmLeaveButton.addEventListener('click', function () {
+        if (requestData) {
+            // Close the modal before submitting data
+            confirmLeaveModal.style.display = 'none';
+
+            // Submit the leave request to the server
+            fetch('https://craftscripters.xyz/infosec/222_2/index.php', { // change URL
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/x-www-form-urlencoded'  // URL-encoded content type
+                },
+                body: new URLSearchParams({
+                    action: 'requestLeave',  // Identify the action on the server
+                    leaveType: requestData.leaveType,
+                    startDate: requestData.startDate,
+                    endDate: requestData.endDate,
+                    employeeID: requestData.employeeID  // Pass employee ID along with the request data
+                })
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    // Show success message if request was submitted successfully
+                    alert("Your leave request has been successfully submitted!");
+                } else {
+                    // Show error message if there was an issue
+                    alert('Error requesting leave: ' + data.message);
+                }
+            })
+            .catch(error => {
+                console.error('Error during fetch:', error);
+                alert('An error occurred while submitting your leave request.');
+            });
+        }
+    });
+});
 
     </script>
     </body>

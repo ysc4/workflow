@@ -1,14 +1,17 @@
 <?php
-	$host = ''; // Hostname or IP address
+	$host = 'localhost'; // Hostname or IP address
 	$db = 'u415861906_infosec2222'; // Database name
-	$user = 'Jerico'; // MySQL username
-    $port = 3308;
-	$pass = '12182003'; // MySQL password
+	$user = 'u415861906_infosec2222'; // MySQL username
+	$pass = 'oI$^K/?U*jzvpq^6'; // MySQL password
 	$charset = 'utf8mb4'; // Character set (optional but recommended)
+
+    header('X-Frame-Options: SAMEORIGIN');
+    header("Content-Security-Policy: frame-ancestors 'self'");
+    header_remove('X-Powered-By');
 
 	try {
 		// Set DSN (Data Source Name)
-		$dsn = "mysql:host=$host;port=$port;dbname=$db;charset=$charset";
+		$dsn = "mysql:host=$host;dbname=$db;charset=$charset";
 		
 		// Options for PDO
 		$options = [
@@ -41,7 +44,7 @@
         // Fetch user credentials from the database
         $stmt = $pdo->prepare("SELECT uc.username, uc.password, e.department, e.employeeID, e.position, 
                                 e.firstName, e.lastName, e.contactInformation
-                            FROM UserCredentials uc
+                            FROM usercredentials uc
                             JOIN employee e ON uc.employeeID = e.employeeID
                             WHERE uc.username = :username");
         $stmt->execute(['username' => $username]);
@@ -441,7 +444,7 @@
                     lr.startDate, 
                     lr.endDate, 
                     lr.leaveType
-                FROM leaveRequest lr
+                FROM leaverequest lr
                 JOIN employee e ON lr.employeeID = e.employeeID
                 WHERE lr.leaveStatus = 'Pending' AND lr.startDate > CURDATE()";
 
@@ -457,7 +460,7 @@
         $leaveStatus = $_POST['leaveStatus'];
 
         try {
-            $sql = "UPDATE leaveRequest SET leaveStatus = :leaveStatus WHERE leaveID = :leaveID";
+            $sql = "UPDATE leaverequest SET leaveStatus = :leaveStatus WHERE leaveID = :leaveID";
             $stmt = $pdo->prepare($sql);
             $stmt->execute(['leaveStatus' => $leaveStatus, 'leaveID' => $leaveID]);
             echo json_encode(['success' => true]);
@@ -1876,8 +1879,6 @@
                 icon.addEventListener("click", function (event) {
                     event.preventDefault();
                     var employeeId = this.getAttribute("data-id");
-                    console.log(employeeId);
-
                     // Fetch combined employee data
                     fetch(`index.php?fetchEmployeeData=true&employeeID=${employeeId}`)
                         .then((response) => response.json())
@@ -2382,7 +2383,6 @@
                 }
                 if (selectedPayPeriod && (monthEntry != parseInt(selectedPayPeriod))) {
                     showRow = false;
-                    console.log(monthEntry + ' is not ' + selectedPayPeriod);
                 }
 
                 if (showRow) {
@@ -2456,7 +2456,6 @@
             .then(response => response.json())
             .then(data => {
                 if (data.success) {
-                    console.log(data.ranges);
                     const unavailableDates = new Set();
                     
                     // Format dates as yyyy-mm-dd
@@ -2801,7 +2800,6 @@
         document.querySelectorAll(".view-leave-icon").forEach(function (icon) {
             icon.addEventListener("click", function (event) {
                 var leave_id = icon.getAttribute('data-employeeLeave-id');
-                console.log(leave_id);
                 fetch('index.php', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
@@ -2809,9 +2807,7 @@
                 })
                 .then(response => response.json()) // Parse the response as JSON
                 .then(data => {
-                    if (data.success) {
-                        console.log(data);
-                        
+                    if (data.success) {                        
                         // Set the leave details in the modal (replace with actual data)
                         document.getElementById('viewLeaveID').innerText = `Leave ID: ${data.leave.leaveID}`; // Replace with actual data
                         document.getElementById('viewLeaveStartDate').innerText = `From: ${data.leave.startDate}` // Replace with actual data
@@ -2832,26 +2828,6 @@
                 });
             });
         };
-
-        
-    /* Debugging Code
-    .then((response) => {
-        console.log("Raw response:", response);
-        return response.text(); // Log raw response as text for debugging
-    })
-    .then((text) => {
-        console.log("Response text:", text);
-        const data = JSON.parse(text); // Convert to JSON after logging
-        if (data.success) {
-            alert("Employee details updated successfully!");
-        } else {
-            alert(data.message || "Failed to update employee details.");
-        }
-    })
-    .catch((error) => {
-        console.error("Error updating employee details:", error);
-    });
-    */
 
     function populateEmployeePayrollOverview(){
         fetch('index.php?action=getCurrentPayroll')
@@ -2878,11 +2854,9 @@
     }
 
     function populateEmployeePaymentHistoryTable(){
-        fetch('finalindex.php?action=getEmployeePaymentHistory')
+        fetch('index.php?action=getEmployeePaymentHistory')
         .then(response => response.json())
             .then(data => {
-                // Clear existing rows
-                console.log(data);
                 employeePaymentHistoryTable.innerHTML = '';
                 // Populate the table
                 data.forEach(paymentEntry => {
@@ -2922,8 +2896,6 @@
         })
         .then(response => response.json())
         .then(data => {
-            console.log('Login response:', data); // Debugging the response
-
             if (data.success) {
                 // Save employee ID
                 employeeID = data.employeeID;
@@ -2967,8 +2939,6 @@
         })
         .then(response => response.json())
         .then(data => {
-            console.log('Logout response:', data); // Debugging the response
-
             if (data.success) {
                 // Hide main containers and show the login container
                 hrMainContainer.classList.add('hidden');
@@ -3001,7 +2971,6 @@
         })
         .then(response => response.json())
         .then(data => {
-            console.log('Delete leave response:', data); // Debugging the response
             if (data.success) {
                 // Hide the leave details modal
                 document.getElementById('leaveDetailsModal').style.display = 'none';
