@@ -2,15 +2,7 @@
     // Generate Dynamic Nonce for CSP
     $nonce = base64_encode(random_bytes(16)); // Generate nonce for CSP
 
-    header("Content-Security-Policy: 
-        default-src 'self'; 
-        script-src 'self' 'nonce-$nonce'; 
-        style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; 
-        font-src 'self' https://fonts.gstatic.com;
-        img-src 'self' data:;
-        connect-src 'self';
-        frame-ancestors 'none';
-    ");
+    header("Content-Security-Policy: default-src 'self'; script-src 'self' 'nonce-$nonce'; style-src 'self' 'nonce-$nonce' https://fonts.googleapis.com https://cdnjs.cloudflare.com; font-src 'self' https://fonts.gstatic.com https://cdnjs.cloudflare.com data; img-src 'self' data:; connect-src 'self'; frame-ancestors 'none';");
     header("Strict-Transport-Security: max-age=31536000; includeSubDomains; preload");
     header("X-Frame-Options: DENY");
     header("X-XSS-Protection: 1; mode=block");
@@ -28,7 +20,7 @@
     setcookie("session_id", session_id(), [
         'expires' => time() + 3600,
         'path' => '/',
-        'domain' => 'craftscripters.xyz/infosec/222_2', // Adjust domain
+        'domain' => 'craftscripters.xyz', // Adjust domain
         'secure' => true,  // Requires HTTPS
         'httponly' => true, // Prevents JS access
         'samesite' => 'Strict'
