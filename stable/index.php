@@ -1,51 +1,48 @@
 <?php
-	$host = 'localhost'; // Hostname or IP address
+    // Generate Dynamic Nonce for CSP
+    $nonce = base64_encode(random_bytes(16)); // Generate nonce for CSP
+
+    header("Content-Security-Policy: 
+        default-src 'self'; 
+        script-src 'self' 'nonce-$nonce'; 
+        style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; 
+        font-src 'self' https://fonts.gstatic.com;
+        img-src 'self' data:;
+        connect-src 'self';
+        frame-ancestors 'none';
+    ");
+    header("Strict-Transport-Security: max-age=31536000; includeSubDomains; preload");
+    header("X-Frame-Options: DENY");
+    header("X-XSS-Protection: 1; mode=block");
+    header("X-Content-Type-Options: nosniff");
+    header("Referrer-Policy: no-referrer-when-downgrade");
+    header_remove('X-Powered-By'); // Hide PHP version for security
+
+    // Start Secure Session
+    ini_set('session.cookie_httponly', 1);
+    ini_set('session.cookie_samesite', 'Strict');
+    session_start();
+    session_regenerate_id(true);
+
+    // Secure Cookies
+    setcookie("session_id", session_id(), [
+        'expires' => time() + 3600,
+        'path' => '/',
+        'domain' => 'craftscripters.xyz/infosec/222_2', // Adjust domain
+        'secure' => true,  // Requires HTTPS
+        'httponly' => true, // Prevents JS access
+        'samesite' => 'Strict'
+    ]);
+    
+    
+    // Database Credentials (Move this to a safer place like an `.env` file)
+    $host = 'localhost'; // Hostname or IP address
 	$db = 'u415861906_infosec2222'; // Database name
 	$user = 'u415861906_infosec2222'; // MySQL username
 	$pass = 'oI$^K/?U*jzvpq^6'; // MySQL password
 	$charset = 'utf8mb4'; // Character set (optional but recommended)
 
-    header('X-Frame-Options: SAMEORIGIN');
-    header("Content-Security-Policy: frame-ancestors 'self'");
-    header_remove('X-Powered-By');
-
-    // Start Secure Session
-    session_start();
-    session_regenerate_id(true); // Prevent session fixation
-
-    // Set Secure Cookies
-    setcookie("session_id", session_id(), [
-        'expires' => time() + 3600,
-        'path' => '/',
-        'domain' => 'craftscripters.xyz', // Adjust domain
-        'secure' => true,
-        'httponly' => true,
-        'samesite' => 'Strict'
-    ]);
-
-    // Set Content Security Policy (CSP) Header
-    header("Content-Security-Policy: 
-        default-src 'self'; 
-        script-src 'self' 'nonce-random123' https://apis.google.com https://cdn.jsdelivr.net; 
-        style-src 'self' 'nonce-random123' https://fonts.googleapis.com; 
-        img-src 'self' data:; 
-        font-src 'self' https://fonts.gstatic.com; 
-        connect-src 'self' https://api.example.com; 
-        object-src 'none'; 
-        frame-ancestors 'none'; 
-        base-uri 'self'; 
-        form-action 'self'; 
-        upgrade-insecure-requests; 
-        block-all-mixed-content; 
-        report-uri /csp-violation-report-endpoint;");
-
-    // Set Security Headers
-    header("Strict-Transport-Security: max-age=31536000; includeSubDomains; preload");
-    header("X-Content-Type-Options: nosniff");
-    header("X-Frame-Options: DENY");
-    header("X-XSS-Protection: 1; mode=block");
-    
-	try {
+    try {
 		// Set DSN (Data Source Name)
 		$dsn = "mysql:host=$host;dbname=$db;charset=$charset";
 		
@@ -65,7 +62,7 @@
 		// Handle connection errors
 		echo "Connection failed: " . $e->getMessage();
 	}
-    session_start();
+
     // LOGIN
     if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['action'] === 'login') {
         $username = $_POST['username'] ?? '';
@@ -1321,7 +1318,7 @@
     </div>
 
       
-    <script>
+    <script nonce = "<?= $nonce ?>">
         // Get the modal
         var add_modal = document.getElementById("addEmployeeModal");
         var edit_modal = document.getElementById("editEmployeeModal");
