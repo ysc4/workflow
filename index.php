@@ -1,20 +1,20 @@
 <?php
     $nonce = base64_encode(random_bytes(16)); // Generate nonce for CSP
 
-    header("Content-Security-Policy: default-src 'self'; script-src 'self' 'nonce-$nonce'; style-src 'self' 'nonce-$nonce' https://fonts.googleapis.com https://cdnjs.cloudflare.com; font-src 'self' https://fonts.gstatic.com https://cdnjs.cloudflare.com data; img-src 'self' data:; connect-src 'self'; frame-ancestors 'none';");
+    header("Content-Security-Policy: default-src 'self'; script-src 'self' 'nonce-$nonce'; style-src 'self' https://fonts.googleapis.com https://cdnjs.cloudflare.com; font-src 'self' https://fonts.gstatic.com https://cdnjs.cloudflare.com data; img-src 'self' data:; connect-src 'self'; frame-src 'self'; form-action 'self'; frame-ancestors 'none';");
     header("Strict-Transport-Security: max-age=31536000; includeSubDomains; preload");
     header("X-Frame-Options: DENY");
+    header("Server:");
     header("X-XSS-Protection: 1; mode=block");
     header("X-Content-Type-Options: nosniff");
     header("Referrer-Policy: no-referrer-when-downgrade");
     header_remove('X-Powered-By'); // Hide PHP version for security
 
-    // Start Secure Session
-    ini_set('session.cookie_httponly', 1);
-    ini_set('session.cookie_samesite', 'Strict');
-    ini_set('session.cookie_expires', time() + 3600);
-    ini_set('session.cookie_secure', true);
+    // Start Secure Session    
     ini_set('session.cookie_httponly', true);
+    ini_set('session.cookie_samesite', 'Strict');
+    ini_set('session.cookie_secure', true);
+    ini_set('session.cookie_expires', time() + 3600);
     session_regenerate_id(true); // Regenerate session ID to prevent session fixation attacks
     session_start();
 
