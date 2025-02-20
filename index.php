@@ -1,17 +1,40 @@
 <?php
-	$host = 'localhost'; // Hostname or IP address
+    $nonce = base64_encode(random_bytes(16)); // Generate nonce for CSP
+
+    header("Content-Security-Policy: default-src 'self'; script-src 'self' 'nonce-$nonce'; style-src 'self' 'nonce-$nonce' https://fonts.googleapis.com https://cdnjs.cloudflare.com; font-src 'self' https://fonts.gstatic.com https://cdnjs.cloudflare.com data; img-src 'self' data:; connect-src 'self'; frame-ancestors 'none';");
+    header("Strict-Transport-Security: max-age=31536000; includeSubDomains; preload");
+    header("X-Frame-Options: DENY");
+    header("X-XSS-Protection: 1; mode=block");
+    header("X-Content-Type-Options: nosniff");
+    header("Referrer-Policy: no-referrer-when-downgrade");
+    header_remove('X-Powered-By'); // Hide PHP version for security
+
+    // Start Secure Session
+    ini_set('session.cookie_httponly', 1);
+    ini_set('session.cookie_samesite', 'Strict');
+    session_start();
+    session_regenerate_id(true);
+
+    // Secure Cookies
+    setcookie("session_id", session_id(), [
+        'expires' => time() + 3600,
+        'path' => '/',
+        'domain' => 'craftscripters.xyz', // Adjust domain
+        'secure' => true,  // Requires HTTPS
+        'httponly' => true, // Prevents JS access
+        'samesite' => 'Strict'
+    ]);
+
+	$host = ''; // Hostname or IP address
 	$db = 'u415861906_infosec2222'; // Database name
-	$user = 'u415861906_infosec2222'; // MySQL username
-	$pass = 'oI$^K/?U*jzvpq^6'; // MySQL password
+	$user = 'root'; // MySQL username
+    $port = 3307;
+	$pass = ''; // MySQL password
 	$charset = 'utf8mb4'; // Character set (optional but recommended)
-
-    header('X-Frame-Options: SAMEORIGIN');
-    header("Content-Security-Policy: frame-ancestors 'self'");
-    header_remove('X-Powered-By');
-
+    
 	try {
 		// Set DSN (Data Source Name)
-		$dsn = "mysql:host=$host;dbname=$db;charset=$charset";
+		$dsn = "mysql:host=$host;port=$port;dbname=$db;charset=$charset";
 		
 		// Options for PDO
 		$options = [
@@ -29,7 +52,6 @@
 		// Handle connection errors
 		echo "Connection failed: " . $e->getMessage();
 	}
-    session_start();
     // LOGIN
     if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['action'] === 'login') {
         $username = $_POST['username'] ?? '';
@@ -711,514 +733,7 @@
 
     <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;600&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
-
-    <style>
-        body {
-            font-family: "Poppins", sans-serif;
-            background-color: #F6F4F0;
-            margin: 0;
-            padding: 0;
-        }
-        .main {
-            width: 90%;
-            height: 80vh;
-            margin: 0 auto;
-            padding: 30px;
-            background-color: #2E5077;
-            border-radius: 20px;
-        }
-        .container {
-            background-color: #F6F4F0;
-            padding: 20px;
-            border-radius: 15px;
-            margin: 10px;
-        }
-        table {
-            width: 100%;
-            border-collapse: collapse;
-            margin: 20px 0;
-            border: 1px solid black; /* Changed border color to black */
-            overflow: auto;
-        }
-        td {
-            border: 1px solid black; /* Changed border color to black */
-            padding: 8px;
-            text-align: left;
-            background-color: #F6F4F0;
-        }
-        th {
-            background-color: #2E5077;
-            color: #F6F4F0;
-            border: 1px solid black; /* Changed border color to black */
-            padding: 8px;
-            text-align: center;
-        }
-        .header {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            background-color: #F6F4F0;
-            color: #fff;
-            padding: 10px 20px;
-        }
-        .header h1 {
-            margin: 0;
-            font-size: 24px;
-        }
-        select {
-            padding: 10px 20px; 
-            margin: 10px 10px 10px 20px;
-            background-color: #F6F4F0; 
-            color: #2E5077; 
-            border: 1px solid #2E5077;
-            border-radius: 15px; 
-            font-family: "Poppins", sans-serif;
-            font-style: normal;
-            font-size: 16px;
-        }
-        nav {
-            display: flex; 
-            margin-left: 90px;
-            margin-bottom: 0;
-        }
-        .navigation {
-            display: inline-block;
-            margin: 0 10px 0 0;
-            padding: 10px 20px;
-            background-color: #F6F4F0;
-            color: #2E5077;
-            cursor: pointer;
-            border-radius: 15px 15px 0 0;
-            margin-bottom: 0;
-        }
-        .navigation.active {
-            background-color: #2E5077; /* Cream background */
-            color: #F6F4F0; /* Blue font color */
-        }
-        .header-container {
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-        }
-        .header-container #left {
-            display: flex;
-            align-items: center;
-        }
-        .header-container #right {
-            margin-left: auto;
-        }
-        #employee-table, #payroll-table, #leave-table {
-            overflow: auto;
-            margin: 10px;
-            height: 85%;
-        }
-        .fa-plus, .fa-download {
-            color: #F6F4F0;
-            cursor: pointer;
-            margin: 5px 10px 5px;
-            font-size: 1.5em;
-        }
-        .fa-pen-to-square {
-            color: #4DA1A9;
-            cursor: pointer;
-            margin: 5px 10px 5px;
-            font-size: 1.5em;
-        }
-        .fa-sort {
-            color: #2E5077;
-            cursor: pointer;
-            margin: 5px 10px 5px;
-            font-size: 1.5em;
-        }
-        .header-container h1, .header-container h2 {
-            margin: 0;
-            color: #F6F4F0;
-            font-family: "Poppins", sans-serif;
-            font-size: 30px;
-            font-weight: 900;
-        }
-        .hidden {
-            display: none;
-        }
-        .leave-flex-container {
-            display: flex;
-            justify-content: space-between;
-            height: 92%;
-        }
-        #incoming-leaves {
-            width: 30%;
-            height: 100%;
-            overflow: auto;
-        }
-        #incoming-leaves h2, #leave-overview h2 {
-            color: #2E5077;
-            font-weight: 1000;
-            margin: 5px 5px 10px;
-        }
-        #incoming-leaves-header, #leave-overview-header {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-        }
-        #leave-overview {
-            width: 70%;
-            height: 100%;
-        }
-        .leave {
-            background-color: #F6F4F0;
-            padding: 10px;
-            border: 1px solid black; 
-            line-height: 0.8; 
-        }
-        #generate-payroll {
-            color: #F6F4F0;
-            cursor: pointer;
-            margin: 5px 10px 5px;
-            font-size: 1.5em;
-        }
-
-        /* Modal styles */
-        .modal {
-            display: none; 
-            position: fixed; 
-            z-index: 1; 
-            left: 0;
-            top: 0;
-            width: 100%; 
-            height: 100%; 
-            overflow: auto; 
-            background-color: rgb(0,0,0); 
-            background-color: rgba(0,0,0,0.4); 
-            padding-top: 60px;
-        }
-        .modal-content {
-            background-color: #F6F4F0;
-            margin: 5% auto; 
-            padding: 20px;
-            border: 1px solid #888;
-            width: 600px; 
-            overflow-y: auto;
-            border-radius: 20px;
-        }
-        #view-employee-details {
-            height: 75%;
-        }
-        #leave-overview-report {
-            width: 1000px;
-        }
-        .close {
-            color: #aaa;
-            float: right;
-            font-size: 28px;
-            font-weight: bold;
-        }
-        .close:hover,
-        .close:focus {
-            color: black;
-            text-decoration: none;
-            cursor: pointer;
-        }
-        .modal h2, .modal h3 {
-            margin: 0;
-            font-size: 30px;
-            font-weight: bold;
-            color: #4DA1A9;
-        }
-      
-        input[type="text"] {
-            width: 60%; 
-            padding: 5px 10px; 
-            margin: 8px 0; 
-            box-sizing: border-box; 
-            font-size: 16px; 
-            font-family: "Poppins", sans-serif;
-            border: 1px solid #2E5077; 
-            border-radius: 5px; 
-        }
-        input[type="date"] {
-            padding: 10px 10px; 
-            margin: 10px;
-            background-color: #F6F4F0; 
-            color: #2E5077; 
-            border: 1px solid #2E5077; 
-            border-radius: 5px; 
-            font-family: "Poppins", sans-serif;
-            font-style: normal;
-            font-size: 14px;
-        }
-        .form-group {
-            text-align: center; 
-        }
-        .submit {
-            width: auto; 
-            padding: 10px 20px; 
-            font-size: 16px; 
-            font-family: "Poppins", sans-serif;
-            background-color: #4DA1A9; 
-            color: #F6F4F0; 
-            border: none; 
-            border-radius: 10px; 
-            cursor: pointer; 
-        }
-
-        #view_employee_header {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-        }
-
-        .leave-request {
-            width: 90%;
-            margin: 10px auto; /* Center the div and add margin */
-            padding: 10px; /* Add padding for better spacing */
-            border-radius: 10px;
-            background-color: #F6F4F0; /* Background color */
-            color: #2E5077;
-            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1); /* Add a subtle shadow */
-            border: 1px solid #2E5077; /* Border color */
-            cursor: pointer; /* Change cursor to pointer */
-            transition: transform 0.2s; /* Add transition for hover effect */
-            line-height: 0.6; /* Lessen line spacing */
-        }
-
-        .leave-request:hover {
-            transform: scale(1.02); /* Slightly enlarge on hover */
-            box-shadow: 0 8px 16px rgba(0, 0, 0, 0.2); /* Enhance shadow on hover */
-        }
-        #reqButtons {
-            display: flex;
-            justify-content: center;
-            margin-top: 20px;
-            gap: 10px;
-        }
-        #departmentFilter {
-            padding: 10px 10px; 
-            margin-left: 5px;
-            background-color: #F6F4F0; 
-            color: #2E5077; 
-            border: 1px solid #2E5077;
-            border-radius: 5px; 
-            font-family: "Poppins", sans-serif;
-            font-style: normal;
-            font-size: 14px;
-        }
-        #view-icon-cell {
-            text-align: center;
-            vertical-align: middle;
-        }
-        #netPay {
-            color: #F6F4F0;
-            background-color: #4DA1A9;
-            font-weight: bold;
-            font-style: italic;
-        }
-        .button-container, #leave-request-buttons {
-            display: flex;
-            justify-content: center;
-            margin-top: 20px;
-            gap: 10px;
-        }
-        #leave-request-buttons button {
-            padding: 10px 20px;
-            font-size: 16px;
-            border: 1px solid #F6F4F0;
-            border-radius: 10px;
-            color: #F6F4F0;
-            background-color: #4DA1A9;
-        }
-        #leave-request-buttons button:hover {
-            background-color: #F6F4F0;
-            color: #4DA1A9;
-        }
-        .profile {
-            width: 90%;
-            padding: 20px;
-            background-color: #F6F4F0;
-            margin: 0 auto;
-            color: #2E5077;
-            text-align: left;
-            border-radius: 20px;
-            margin-bottom: 50px; /* Adjust as needed */
-            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1); /* Added shadow */
-            box-sizing: border-box; /* Ensure padding is included in the width */
-            overflow: hidden; /* Prevent content from overflowing */
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-        }
-
-        .profile img {
-            margin-right: 20px;
-            border-radius: 50%;
-            height: 150px;
-        }
-
-        .profile-info {
-            flex-grow: 1;
-        }
-
-        .profile h2, .profile p {
-            margin: 0;
-            padding: 2px 0; /* Reduced padding to lessen spacing */
-        }
-        .profile h2 {
-            font-size: 32px;
-            font-weight: bold;
-            color: #4DA1A9;
-        }
-
-        .profile-time-container {
-            width: 200px;
-            height: 130px;
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            justify-content: center;
-            background-color: #2E5077;
-            padding: 15px;
-            border-radius: 15px;
-            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1); /* Added shadow */
-        }
-
-        #profile-time {
-            font-size: 50px;
-            font-weight: bold;
-            color: #F6F4F0;
-            display: flex;
-            align-items: center;
-        }
-
-        button {
-            font-family: "Poppins", sans-serif;
-            border: 1px solid #F6F4F0;
-            border-radius: 15px;
-            color: #F6F4F0;
-            background-color: #2E5077;
-            padding: 10px 20px;
-        }
-
-        button:hover {
-            background-color: #F6F4F0;
-            color: #4DA1A9;
-        }
-        #bg employee_main, hr_main {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            background-color: #F6F4F0;
-            color: #fff;
-            padding: 10px 20px;
-        }
-        #user-leave {
-            display: flex;
-            justify-content: space-between;
-            height: 50%;
-        }
-        #remaining-leaves {
-            width: 40%;
-            height: 80%;
-            overflow: auto;
-        }
-        #remaining-leaves h2 {
-            color: #2E5077;
-            font-weight: 1000;
-            margin: 5px 5px 10px;
-        }
-        #leave-request {
-            width: 60%;
-            height: 80%;
-            overflow: auto;
-        }
-        #leave-request h2 {
-            color: #2E5077;
-            font-weight: 1000;
-            margin: 5px 5px 10px;
-        }
-        .leave-history {
-            width: 90%;
-            height: 50%;
-            overflow: auto;
-        }
-        #leave-history h2 {
-            color: #2E5077;
-            font-weight: 1000;
-            margin: 5px 5px 10px;
-        }
-        #user-payroll {
-            display: flex;
-            justify-content: center;
-            height: 100%;
-        }
-        .payroll-container {
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            height: 100%;
-            gap: 20px; /* Add gap between the child elements */
-        }
-        .payroll-overview, .payment-history {
-            width: 97%;
-            flex: 1;
-            overflow: auto;
-            background-color: #F6F4F0;
-            border-radius: 20px;
-            padding: 20px;
-            margin: 20px;
-        }
-        .payroll-overview h2, .payment-history h2 {
-            color: #2E5077;
-            font-size: 28px;
-            font-weight: 1000;
-            margin: 5px 5px 10px;
-        }
-                .login-container {
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            height: 90vh;
-        }
-        .login-form {
-            width: 500px;
-            height: 400px;
-            display: flex;
-            flex-direction: column;
-            justify-content: center;
-            align-items: center;
-            padding: 10px;
-            background-color: #4DA1A9;
-            color: #F6F4F0;
-            border-radius: 20px;
-            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1); /* Added shadow */
-        }
-        .login-form h2 {
-            margin: 0;
-            font-size: 50px;
-            font-weight: bold;
-            margin-bottom: 20px;
-        }
-        .login-form label {
-            margin: 10px 0;
-            font-size: 20px;
-        }
-        .login-form input {
-            width: 100%;
-            padding: 10px;
-            margin: 10px auto;
-            font-size: 16px;
-            border: 1px solid #F6F4F0;
-            border-radius: 15px;
-        }
-        .login-form button {
-            padding: 10px 20px;
-            font-size: 16px;
-            border: 1px solid #F6F4F0;
-            border-radius: 15px;
-            color: #4DA1A9;
-            background-color: #F6F4F0;
-            margin-top: 20px;
-            cursor: pointer;
-        }
-    </style>
+    <link rel="stylesheet" href="style.css">
 </head>
 <body>
     <div class="header">
@@ -1792,7 +1307,7 @@
     </div>
 
       
-    <script>
+    <script nonce="<?php echo $nonce; ?>">
         // Get the modal
         var add_modal = document.getElementById("addEmployeeModal");
         var edit_modal = document.getElementById("editEmployeeModal");
@@ -3065,3 +2580,4 @@
 
     </script>
     </body>
+</html>
