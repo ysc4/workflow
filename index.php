@@ -12,18 +12,11 @@
     // Start Secure Session
     ini_set('session.cookie_httponly', 1);
     ini_set('session.cookie_samesite', 'Strict');
+    ini_set('session.cookie_expires', time() + 3600);
+    ini_set('session.cookie_secure', true);
+    ini_set('session.cookie_httponly', true);
+    session_regenerate_id(true); // Regenerate session ID to prevent session fixation attacks
     session_start();
-    session_regenerate_id(true);
-
-    // Secure Cookies
-    setcookie("session_id", session_id(), [
-        'expires' => time() + 3600,
-        'path' => '/',
-        'domain' => 'craftscripters.xyz', // Adjust domain
-        'secure' => true,  // Requires HTTPS
-        'httponly' => true, // Prevents JS access
-        'samesite' => 'Strict'
-    ]);
 
 	$host = ''; // Hostname or IP address
 	$db = 'u415861906_infosec2222'; // Database name
@@ -747,9 +740,9 @@
                 <h2>Login</h2>
                 <form>
                     <label for="username">Username:</label>
-                    <input type="text" id="username" name="username"><br>
+                    <input type="text" id="username" name="username" required><br>
                     <label for="password">Password:</label>
-                    <input type="password" id="password" name="password"><br>
+                    <input type="password" id="password" name="password" required><br>
                     <div class="button-container">
                         <button type="submit" class="submit">Login</button>
                     </div>
@@ -2404,7 +2397,7 @@
         }
 
         // Send login data to the server
-        fetch('https://craftscripters.xyz/infosec/222_2/index.php', { // change URL
+        fetch('index.php', { // change URL
             method: 'POST',
             headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
             body: new URLSearchParams({ action: 'login', username, password })
@@ -2447,7 +2440,7 @@
     // LOGOUT - handling logout logic
     userIcon.addEventListener('click', function () {
         // Make an API call to log out the user
-        fetch('https://craftscripters.xyz/infosec/222_2/index.php', { // Change URL as needed
+        fetch('index.php', { // Change URL as needed
             method: 'POST',
             headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
             body: new URLSearchParams({ action: 'logout' }),
@@ -2480,7 +2473,7 @@
         const leaveID = document.getElementById('viewLeaveID').innerText.split(': ')[1];
         
         // Send the leave ID to the server to delete the leave
-        fetch('https://craftscripters.xyz/infosec/222_2/index.php?action=deleteLeave&leaveID=' + leaveID, {
+        fetch('index.php?action=deleteLeave&leaveID=' + leaveID, {
             method: 'DELETE',
             headers: { 'Content-Type': 'application/x-www-form-urlencoded' }
         })
@@ -2547,7 +2540,7 @@
             confirmLeaveModal.style.display = 'none';
 
             // Submit the leave request to the server
-            fetch('https://craftscripters.xyz/infosec/222_2/index.php', { // change URL
+            fetch('index.php', { // change URL
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/x-www-form-urlencoded'  // URL-encoded content type
